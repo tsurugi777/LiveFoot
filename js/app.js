@@ -1,4 +1,4 @@
-// app.js - Arquivo Principal com UI Completa
+// app.js - Arquivo Principal com UI Completa (Corrigido)
 
 function advanceWeekManager() {
     let currentFixtures = gameState.fixtures.filter(f => f.globalWeek === gameState.currentWeek && !f.played && f.away !== null);
@@ -112,11 +112,11 @@ function renderClassicHub() {
             
             matchContainer.innerHTML = `
                 <div class="pes-glass rounded-xl p-2 flex items-center justify-between shadow-lg flex-1 border-l-8 border-l-blue-500">
-                    ${hTeam.logoUrl ? `<img src="${hTeam.logoUrl}" class="team-logo-large shrink-0 drop-shadow-md">` : `<div class="w-10 h-10 sm:w-14 sm:h-14 rounded-full border border-gray-400 flex items-center justify-center font-bold text-xl sm:text-2xl bg-white shadow-inner shrink-0" style="color: ${hTeam.color}">${hTeam.name.charAt(0)}</div>`}
+                    ${hTeam.logoUrl ? `<img src="${hTeam.logoUrl}" class="team-logo-large shrink-0 drop-shadow-md" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div class=\\'w-10 h-10 sm:w-14 sm:h-14 rounded-full border border-gray-400 flex items-center justify-center font-bold text-xl sm:text-2xl bg-white shadow-inner shrink-0\\' style=\\'color: ${hTeam.color}\\'>${hTeam.name.charAt(0)}</div>';">` : `<div class="w-10 h-10 sm:w-14 sm:h-14 rounded-full border border-gray-400 flex items-center justify-center font-bold text-xl sm:text-2xl bg-white shadow-inner shrink-0" style="color: ${hTeam.color}">${hTeam.name.charAt(0)}</div>`}
                     <span class="font-bold text-lg sm:text-xl text-gray-800 drop-shadow-sm pr-2 truncate ml-2 text-right">${hTeam.name}</span>
                 </div>
                 <div class="pes-glass rounded-xl p-2 flex items-center justify-between shadow-lg flex-1 flex-row-reverse border-r-8 border-r-red-500">
-                    ${aTeam.logoUrl ? `<img src="${aTeam.logoUrl}" class="team-logo-large shrink-0 drop-shadow-md">` : `<div class="w-10 h-10 sm:w-14 sm:h-14 rounded-full border border-gray-400 flex items-center justify-center font-bold text-xl sm:text-2xl bg-white shadow-inner shrink-0" style="color: ${aTeam.color}">${aTeam.name.charAt(0)}</div>`}
+                    ${aTeam.logoUrl ? `<img src="${aTeam.logoUrl}" class="team-logo-large shrink-0 drop-shadow-md" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div class=\\'w-10 h-10 sm:w-14 sm:h-14 rounded-full border border-gray-400 flex items-center justify-center font-bold text-xl sm:text-2xl bg-white shadow-inner shrink-0\\' style=\\'color: ${aTeam.color}\\'>${aTeam.name.charAt(0)}</div>';">` : `<div class="w-10 h-10 sm:w-14 sm:h-14 rounded-full border border-gray-400 flex items-center justify-center font-bold text-xl sm:text-2xl bg-white shadow-inner shrink-0" style="color: ${aTeam.color}">${aTeam.name.charAt(0)}</div>`}
                     <span class="font-bold text-lg sm:text-xl text-gray-800 drop-shadow-sm pl-2 truncate mr-2 text-left">${aTeam.name}</span>
                 </div>
             `;
@@ -132,6 +132,12 @@ function renderClassicHub() {
         if (myTeam.logoUrl) {
             logoImg.src = myTeam.logoUrl;
             logoImg.style.display = 'block';
+            logoImg.onerror = function() { 
+                this.style.display = 'none'; 
+                document.getElementById('pes-my-logo-text').style.display = 'flex';
+                document.getElementById('pes-my-logo-text').innerText = myTeam.name.charAt(0);
+                document.getElementById('pes-my-logo-text').style.color = myTeam.color;
+            };
             logoText.style.display = 'none';
         } else {
             logoImg.style.display = 'none';
@@ -165,7 +171,7 @@ function renderClassicHub() {
     
     const mainContent = document.getElementById('main-content');
 
-    // Detalhes do jogador (usado em várias telas)
+    // Detalhes do jogador (SEM FORÇAS E FRAQUEZAS)
     const playerDetailHtml = `
         <div class="flex flex-col bg-white h-full border border-gray-400 shadow-md">
             <div class="flex bg-black text-[#ffff00] p-2 gap-2 h-32 shrink-0">
@@ -187,10 +193,6 @@ function renderClassicHub() {
                 <div class="flex justify-between border-t border-gray-300 pt-1 mt-1">
                     <span>Salário: <span id="pd-salary" class="text-red-700"></span></span>
                     <span>Passe: <span id="pd-value" class="text-blue-700"></span></span>
-                </div>
-                <div class="border-t border-gray-300 pt-1 mt-1 flex flex-col gap-0.5 text-[9.5px]">
-                    <div class="flex gap-1"><span class="font-bold text-green-700 shrink-0"><i class="fas fa-arrow-up"></i> Forças:</span> <span id="pd-strengths" class="text-gray-600 truncate cursor-help">--</span></div>
-                    <div class="flex gap-1"><span class="font-bold text-red-700 shrink-0"><i class="fas fa-arrow-down"></i> Fraquezas:</span> <span id="pd-weaknesses" class="text-gray-600 truncate cursor-help">--</span></div>
                 </div>
             </div>
             
@@ -437,9 +439,9 @@ function renderClassicHub() {
                                 return `<div class="mb-1">
                                     <div class="text-[9px] text-gray-500 font-bold text-center uppercase tracking-wider mb-0.5">${compName} - Sem. ${f.globalWeek}</div>
                                     <div class="flex justify-between items-center text-[11px] p-1 border rounded shadow-sm ${resClass}">
-                                        <div class="flex items-center gap-1 w-24 justify-end ${isHome ? 'font-bold':''}"><span class="truncate">${hTeam.name}</span> ${hTeam.logoUrl ? `<img src="${hTeam.logoUrl}" class="team-logo-small">` : ''}</div>
+                                        <div class="flex items-center gap-1 w-24 justify-end ${isHome ? 'font-bold':''}"><span class="truncate">${hTeam.name}</span> ${hTeam.logoUrl ? `<img src="${hTeam.logoUrl}" class="team-logo-small" onerror="this.style.display='none';">` : ''}</div>
                                         <span class="font-mono bg-white px-2 py-0.5 border border-gray-400 font-bold mx-2 rounded">${f.homeScore} x ${f.awayScore}</span>
-                                        <div class="flex items-center gap-1 w-24 justify-start ${!isHome ? 'font-bold':''}">${aTeam.logoUrl ? `<img src="${aTeam.logoUrl}" class="team-logo-small">` : ''} <span class="truncate">${aTeam.name}</span></div>
+                                        <div class="flex items-center gap-1 w-24 justify-start ${!isHome ? 'font-bold':''}">${aTeam.logoUrl ? `<img src="${aTeam.logoUrl}" class="team-logo-small" onerror="this.style.display='none';">` : ''} <span class="truncate">${aTeam.name}</span></div>
                                     </div>
                                 </div>`;
                               }).join('')
@@ -457,9 +459,9 @@ function renderClassicHub() {
                                 return `<div class="mb-1">
                                     <div class="text-[9px] text-gray-500 font-bold text-center uppercase tracking-wider mb-0.5">${compName} - Sem. ${f.globalWeek}</div>
                                     <div class="flex justify-between items-center text-[11px] p-1 border border-gray-300 bg-white/70 rounded shadow-sm">
-                                        <div class="flex items-center gap-1 w-24 justify-end ${isHome ? 'font-bold text-black':'text-gray-700'}"><span class="truncate">${hTeam.name}</span> ${hTeam.logoUrl ? `<img src="${hTeam.logoUrl}" class="team-logo-small">` : ''}</div>
+                                        <div class="flex items-center gap-1 w-24 justify-end ${isHome ? 'font-bold text-black':'text-gray-700'}"><span class="truncate">${hTeam.name}</span> ${hTeam.logoUrl ? `<img src="${hTeam.logoUrl}" class="team-logo-small" onerror="this.style.display='none';">` : ''}</div>
                                         <span class="font-mono px-2 py-0.5 text-gray-500 text-[10px] font-bold">VS</span>
-                                        <div class="flex items-center gap-1 w-24 justify-start ${!isHome ? 'font-bold text-black':'text-gray-700'}">${aTeam.logoUrl ? `<img src="${aTeam.logoUrl}" class="team-logo-small">` : ''} <span class="truncate">${aTeam.name}</span></div>
+                                        <div class="flex items-center gap-1 w-24 justify-start ${!isHome ? 'font-bold text-black':'text-gray-700'}">${aTeam.logoUrl ? `<img src="${aTeam.logoUrl}" class="team-logo-small" onerror="this.style.display='none';">` : ''} <span class="truncate">${aTeam.name}</span></div>
                                     </div>
                                 </div>`;
                               }).join('')
@@ -510,7 +512,7 @@ function renderClassicHub() {
                                                 let teamObj = gameState.teamMap[t.id];
                                                 return `<tr class="${t.id === gameState.playerTeamId ? 'bg-yellow-100 font-bold' : ''}">
                                                     <td class="text-center font-bold text-gray-600">${idx+1}º</td>
-                                                    <td class="flex items-center gap-1"><span class="truncate max-w-[120px]">${teamObj ? teamObj.name : t.id}</span> ${teamObj && teamObj.logoUrl ? `<img src="${teamObj.logoUrl}" class="w-4 h-4 object-contain">` : ''}</td>
+                                                    <td class="flex items-center gap-1"><span class="truncate max-w-[120px]">${teamObj ? teamObj.name : t.id}</span> ${teamObj && teamObj.logoUrl ? `<img src="${teamObj.logoUrl}" class="w-4 h-4 object-contain" onerror="this.style.display='none';">` : ''}</td>
                                                     <td class="text-center font-bold text-blue-800">${t.pts}</td><td class="text-center">${t.played}</td>
                                                     <td class="text-center">${t.won}</td><td class="text-center">${t.drawn}</td><td class="text-center">${t.lost}</td><td class="text-center">${t.gd > 0 ? '+'+t.gd : t.gd}</td>
                                                 </tr>`;
@@ -555,7 +557,7 @@ function renderClassicHub() {
                                     let teamObj = gameState.teamMap[t.id];
                                     let seedLabel = '';
                                     if (phase.seedingByPrevPhase && idx === 0) seedLabel = ' 🏅';
-                                    return `<tr class="${t.id === gameState.playerTeamId ? 'bg-yellow-100 font-bold' : ''}"><td class="text-center font-bold text-gray-600">${idx+1}º${seedLabel}</td><td class="flex items-center gap-1"><span class="truncate max-w-[100px]">${teamObj ? teamObj.name : t.id}</span> ${teamObj && teamObj.logoUrl ? `<img src="${teamObj.logoUrl}" class="w-4 h-4 object-contain">` : ''}</td><td class="text-center font-bold text-blue-800">${t.pts}</td><td class="text-center">${t.played}</td><td class="text-center">${t.gd > 0 ? '+'+t.gd : t.gd}</td></tr>`;
+                                    return `<tr class="${t.id === gameState.playerTeamId ? 'bg-yellow-100 font-bold' : ''}"><td class="text-center font-bold text-gray-600">${idx+1}º${seedLabel}</td><td class="flex items-center gap-1"><span class="truncate max-w-[100px]">${teamObj ? teamObj.name : t.id}</span> ${teamObj && teamObj.logoUrl ? `<img src="${teamObj.logoUrl}" class="w-4 h-4 object-contain" onerror="this.style.display='none';">` : ''}</td><td class="text-center font-bold text-blue-800">${t.pts}</td><td class="text-center">${t.played}</td><td class="text-center">${t.gd > 0 ? '+'+t.gd : t.gd}</td></tr>`;
                                 }).join('');
                                 contentHTML += `</tbody></table></div>`;
                             });
@@ -573,7 +575,7 @@ function renderClassicHub() {
                                                 let teamObj = gameState.teamMap[t.id];
                                                 return `<tr class="${t.id === gameState.playerTeamId ? 'bg-yellow-100 font-bold' : ''}">
                                                     <td class="text-center font-bold text-gray-600">${idx+1}º</td>
-                                                    <td class="flex items-center gap-1"><span class="truncate max-w-[120px]">${teamObj ? teamObj.name : t.id}</span> ${teamObj && teamObj.logoUrl ? `<img src="${teamObj.logoUrl}" class="w-4 h-4 object-contain">` : ''}</td>
+                                                    <td class="flex items-center gap-1"><span class="truncate max-w-[120px]">${teamObj ? teamObj.name : t.id}</span> ${teamObj && teamObj.logoUrl ? `<img src="${teamObj.logoUrl}" class="w-4 h-4 object-contain" onerror="this.style.display='none';">` : ''}</td>
                                                     <td class="text-center font-bold text-blue-800">${t.pts}</td><td class="text-center">${t.played}</td>
                                                     <td class="text-center">${t.won}</td><td class="text-center">${t.drawn}</td><td class="text-center">${t.lost}</td><td class="text-center">${t.gd > 0 ? '+'+t.gd : t.gd}</td>
                                                 </tr>`;
@@ -832,7 +834,7 @@ function renderClassicHub() {
             </div>
         `;
 
-    // TELA JOBS (EMPREGOS)
+    // TELA JOBS (EMPREGOS) - CORRIGIDA PARA EXIBIR FOTOS E NOMES DOS TÉCNICOS
     } else if (currentMainView === 'jobs') {
         const countryId = marketState.countryId || (db.countries.length > 0 ? db.countries[0].id : null);
         const comps = db.competitions.filter(c => c.countryId === countryId);
@@ -844,15 +846,26 @@ function renderClassicHub() {
             const isHumanManaged = t.isHumanManaged || false;
             const status = isMyTeam ? 'Você' : (isHumanManaged ? 'Humano' : 'IA');
             const mgrName = t.managerName || 'Interino';
-            const mgrPhoto = t.managerPhotoUrl ? `<img src="${t.managerPhotoUrl}" class="manager-photo" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'manager-photo-placeholder\\'><i class=\\'fas fa-user-tie\\'></i></div>';">` : `<div class="manager-photo-placeholder"><i class="fas fa-user-tie"></i></div>`;
-            const tLogo = t.logoUrl ? `<img src="${t.logoUrl}" class="team-logo-small">` : '';
+            
+            // CORRIGIDO: Exibe a foto do técnico ou placeholder
+            let mgrPhotoHtml = '';
+            if (isMyTeam || isHumanManaged) {
+                // Técnico humano - mostra ícone de usuário
+                mgrPhotoHtml = `<div class="manager-photo-placeholder" style="background: #4ade80; color: #000; font-weight: bold; font-size: 16px;"><i class="fas fa-user-tie"></i></div>`;
+            } else if (t.managerPhotoUrl) {
+                mgrPhotoHtml = `<img src="${t.managerPhotoUrl}" class="manager-photo" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'manager-photo-placeholder\\'><i class=\\'fas fa-user-tie\\'></i></div>';">`;
+            } else {
+                mgrPhotoHtml = `<div class="manager-photo-placeholder"><i class="fas fa-user-tie"></i></div>`;
+            }
+            
+            const tLogo = t.logoUrl ? `<img src="${t.logoUrl}" class="team-logo-small" onerror="this.style.display='none';">` : '';
 
             return `<tr>
                 <td class="flex items-center gap-2 font-bold text-sm tracking-wide" style="color: ${t.color}">${tLogo} <span>${t.name}</span></td>
                 <td class="text-center font-bold text-green-700 text-sm bg-green-50 border-r border-gray-300">${t.rating}</td>
                 <td class="text-center text-xs font-bold text-gray-700">
                     <div class="flex items-center gap-2 justify-center">
-                        ${mgrPhoto}
+                        ${mgrPhotoHtml}
                         <span class="truncate w-24 text-left">${mgrName}</span>
                     </div>
                 </td>
