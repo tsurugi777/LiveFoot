@@ -18,7 +18,7 @@ const nationalityToFlag = {
     "Honduras": "🇭🇷", "Jamaica": "🇯🇲", "Canada": "🇨🇦", "Australia": "🇨🇦" 
 };
 
-// Nomes de jovens da base por país - com nome e sobrenome
+// Nomes de jovens da base por país
 const youthFirstNamesByCountry = {
     "Brazil": ["João", "Pedro", "Lucas", "Gabriel", "Rafael", "Matheus", "Felipe", "Bruno", "Anderson", "Thiago", "Rodrigo", "Diego", "Paulo", "Marcelo", "Renato", "Carlos", "Roberto", "Ricardo", "Fernando", "Eduardo"],
     "Argentina": ["Lucas", "Mateo", "Facundo", "Santiago", "Joaquín", "Tomás", "Benjamín", "Nicolás", "Matías", "Franco", "Ignacio", "Federico", "Gonzalo", "Leandro", "Hernán", "Diego", "Pablo", "Martín", "Agustín", "Lautaro"],

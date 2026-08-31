@@ -1,5 +1,3 @@
-// Sistema de Transferências
-
 function simulateAIMarket() {
     const teams = Object.values(gameState.teamMap).filter(t => t.id !== gameState.playerTeamId);
     

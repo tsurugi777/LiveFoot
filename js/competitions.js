@@ -1,5 +1,3 @@
-// Sistema de Competições
-
 function initGlobalStandings(rootId, season) {
     if (!gameState.globalStandings[season]) gameState.globalStandings[season] = {};
     gameState.globalStandings[season][rootId] = {};
@@ -218,4 +216,331 @@ function autoLineup(formationKey) {
     gameState.myLineup.formation = formationKey;
     
     gameState.myLineup.bench = available.slice(0, 12).map(p => p.id);
+}
+
+function startPhase(rootId, stageIndex, phaseIndex, advancingTeams = null, startWeek = gameState.currentWeek, season) {
+    if (!gameState.countrySeason[rootId] || gameState.countrySeason[rootId] < season) gameState.countrySeason[rootId] = season;
+    const stage = gameState.stages[rootId][stageIndex];
+    if(!stage.phases || stage.phases.length === 0) stage.phases = [{id: stage.id+'_p', type: 'LEAGUE', rounds: 2, name: 'Fase Regular'}];
+    let phase = stage.phases[phaseIndex];
+    const phaseKey = phase.id + "_" + season;
+    gameState.activePhases[phaseKey] = { rootId, stageIndex, phaseIndex, phaseId: phase.id, season: season };
+    gameState.standings[phaseKey] = {};
+    
+    let teamsToPlay = [];
+    
+    if (phase.injectRules && phase.injectRules.length > 0) {
+        const injectedTeams = resolveInjectRules(phase.injectRules, season).map(id => gameState.teamMap[id]).filter(t => t);
+        
+        if (advancingTeams && advancingTeams.length > 0) {
+            const existingIds = new Set(injectedTeams.map(t => t.id));
+            advancingTeams.forEach(t => {
+                if (t && t.id && !existingIds.has(t.id)) {
+                    injectedTeams.push(t);
+                    existingIds.add(t.id);
+                }
+            });
+        }
+        
+        if (injectedTeams.length > 0) {
+            teamsToPlay = injectedTeams;
+        } else {
+            if (advancingTeams && advancingTeams.length > 0) {
+                teamsToPlay = advancingTeams.filter(t => t);
+            } else {
+                teamsToPlay = db.teams.filter(t => t.compId === rootId);
+            }
+        }
+    } else if (advancingTeams && advancingTeams.length > 0) {
+        teamsToPlay = advancingTeams.filter(t => t);
+    } else {
+        teamsToPlay = db.teams.filter(t => t.compId === rootId);
+    }
+    
+    teamsToPlay = teamsToPlay.filter((v, i, a) => v && v.id && a.findIndex(t => t.id === v.id) === i);
+
+    if (teamsToPlay.length === 0) {
+        console.warn(`Nenhum time disponível para a fase ${phase.name} (${phaseKey})`);
+        if (phaseIndex + 1 < stage.phases.length) {
+            delete gameState.activePhases[phaseKey];
+            startPhase(rootId, stageIndex, phaseIndex + 1, [], startWeek, season);
+        } else {
+            delete gameState.activePhases[phaseKey];
+            advanceToNextStageOrSeason(rootId, stageIndex, season);
+        }
+        return;
+    }
+
+    if (teamsToPlay.length <= 1) {
+        if (phase.awardsTitle && teamsToPlay.length === 1) {
+            const champion = teamsToPlay[0];
+            if (!gameState.titles[champion.id]) gameState.titles[champion.id] = {};
+            gameState.titles[champion.id][rootId] = (gameState.titles[champion.id][rootId] || 0) + 1;
+            gameState.history.push({ 
+                season: season, 
+                teamId: champion.id, 
+                targetCompId: rootId, 
+                originName: stage.name + " - " + phase.name 
+            });
+            if (rootId === gameState.playerBaseCompId || champion.id === gameState.playerTeamId) {
+                setTimeout(() => showModal(`Campeão!`, `🏆 ${champion.name} venceu: ${phase.name} por WO/Classificação Direta!`), 400);
+            }
+        }
+        
+        if(phaseIndex + 1 < stage.phases.length) {
+            delete gameState.activePhases[phaseKey];
+            startPhase(rootId, stageIndex, phaseIndex + 1, teamsToPlay, startWeek, season);
+        } else {
+            delete gameState.activePhases[phaseKey];
+            advanceToNextStageOrSeason(rootId, stageIndex, season);
+        }
+        return; 
+    }
+
+    let newFixtures = [];
+    if (phase.type === 'LEAGUE') {
+        teamsToPlay.forEach(t => initStanding(phase.id, t.id, 'Unico', season, phase, rootId, stageIndex, phaseIndex));
+        newFixtures = generateRoundRobin(teamsToPlay.map(t=>t.id), phase.rounds || 2, startWeek, phase.id, rootId, season);
+    } else if (phase.type === 'GROUPS') {
+        const numGroups = phase.numGroups || 2;
+        
+        let prevPhaseRanking = null;
+        if (phase.seedingByPrevPhase && phaseIndex > 0) {
+            const prevPhase = stage.phases[phaseIndex - 1];
+            const prevPhaseKey = prevPhase.id + "_" + season;
+            if (gameState.phaseRankings[prevPhaseKey]) {
+                prevPhaseRanking = gameState.phaseRankings[prevPhaseKey];
+            } else if (gameState.standings[prevPhaseKey]) {
+                prevPhaseRanking = getPhaseStandingsList(prevPhaseKey);
+            }
+        }
+
+        let distributedTeams;
+        if (phase.seedingByPrevPhase && prevPhaseRanking) {
+            distributedTeams = distributeTeamsInPots(teamsToPlay, numGroups, prevPhaseRanking);
+        } else {
+            distributedTeams = shuffleArray(teamsToPlay);
+        }
+
+        let groups = Array.from({length: numGroups}, () => []);
+        const groupSize = Math.ceil(distributedTeams.length / numGroups);
+        
+        for (let i = 0; i < distributedTeams.length; i++) {
+            const groupIdx = i % numGroups;
+            groups[groupIdx].push(distributedTeams[i]);
+        }
+
+        for (let i = 0; i < numGroups; i++) {
+            const fullGroups = groups.filter(g => g.length > 0);
+            
+            if (groups[i].length === 0 && fullGroups.length > 0) {
+                const sourceGroup = fullGroups.find(g => g.length > groupSize + 1);
+                if (sourceGroup) {
+                    const moved = sourceGroup.pop();
+                    groups[i].push(moved);
+                } else if (groups[0].length > 1) {
+                    const moved = groups[0].pop();
+                    groups[i].push(moved);
+                }
+            }
+        }
+
+        let nonEmptyGroups = groups.filter(g => g.length > 0);
+        while (nonEmptyGroups.length < numGroups && nonEmptyGroups.length > 0) {
+            const smallestGroup = nonEmptyGroups.reduce((a, b) => a.length <= b.length ? a : b);
+            if (smallestGroup.length > 1) {
+                const moved = smallestGroup.pop();
+                const newGroup = [moved];
+                nonEmptyGroups.push(newGroup);
+            } else {
+                break;
+            }
+        }
+        groups = nonEmptyGroups;
+        
+        for(let i = 0; i < groups.length; i++) {
+            groups[i].forEach(t => initStanding(phase.id, t.id, `G${i+1}`, season, phase, rootId, stageIndex, phaseIndex));
+            newFixtures.push(...generateRoundRobin(groups[i].map(t=>t.id), phase.rounds || 2, startWeek, phase.id, rootId, season));
+        }
+    } else if (phase.type === 'KNOCKOUT') {
+        let prevPhaseRanking = null;
+        if (phaseIndex > 0) {
+            const prevPhase = stage.phases[phaseIndex - 1];
+            const prevPhaseKey = prevPhase.id + "_" + season;
+            if (gameState.phaseRankings[prevPhaseKey]) {
+                prevPhaseRanking = gameState.phaseRankings[prevPhaseKey];
+            } else if (gameState.standings[prevPhaseKey]) {
+                prevPhaseRanking = getPhaseStandingsList(prevPhaseKey);
+            }
+        }
+        
+        let sortedTeams = [...teamsToPlay];
+        if (prevPhaseRanking) {
+            const rankingMap = {};
+            prevPhaseRanking.forEach((entry, idx) => {
+                rankingMap[entry.teamId] = idx + 1;
+            });
+            sortedTeams.sort((a, b) => {
+                const rankA = rankingMap[a.id] || 999;
+                const rankB = rankingMap[b.id] || 999;
+                return rankA - rankB;
+            });
+        } else {
+            sortedTeams.sort((a, b) => b.rating - a.rating);
+        }
+        
+        const totalTeams = sortedTeams.length;
+        
+        let targetPowerOfTwo = 1;
+        while (targetPowerOfTwo < totalTeams) {
+            targetPowerOfTwo *= 2;
+        }
+        
+        const numByes = targetPowerOfTwo - totalTeams;
+        
+        const teamsWithByes = sortedTeams.slice(0, numByes);
+        const teamsWithoutByes = sortedTeams.slice(numByes);
+        
+        teamsToPlay.forEach(t => initStanding(phase.id, t.id, 'Mata-Mata', season, phase, rootId, stageIndex, phaseIndex));
+        
+        const orderedTeamsWithoutByes = [...teamsWithoutByes];
+        const numMatchups = Math.floor(orderedTeamsWithoutByes.length / 2);
+        
+        let matchupPairs = [];
+        for (let i = 0; i < numMatchups; i++) {
+            const first = orderedTeamsWithoutByes[i];
+            const last = orderedTeamsWithoutByes[orderedTeamsWithoutByes.length - 1 - i];
+            matchupPairs.push({ team1: first, team2: last });
+        }
+        
+        matchupPairs.forEach((pair, idx) => {
+            let home = pair.team1.id;
+            let away = pair.team2.id;
+            if (Math.random() > 0.5) {
+                home = pair.team2.id;
+                away = pair.team1.id;
+            }
+            newFixtures.push({ 
+                home, away, 
+                homeScore: null, awayScore: null, 
+                played: false, 
+                globalWeek: startWeek, 
+                compId: phase.id, 
+                baseCompId: rootId, 
+                season,
+                isBye: false,
+                matchupIndex: idx,
+                round: 1
+            });
+            if(phase.twoLegs) {
+                newFixtures.push({ 
+                    home: away, away: home, 
+                    homeScore: null, awayScore: null, 
+                    played: false, 
+                    globalWeek: startWeek + 1, 
+                    compId: phase.id, 
+                    baseCompId: rootId, 
+                    season,
+                    isBye: false,
+                    matchupIndex: idx,
+                    round: 1
+                });
+            }
+        });
+        
+        if (teamsWithByes.length > 0) {
+            gameState.phaseByes[phaseKey] = teamsWithByes.map(t => t.id);
+            
+            teamsWithByes.forEach(team => {
+                newFixtures.push({
+                    home: team.id,
+                    away: null,
+                    homeScore: null,
+                    awayScore: null,
+                    played: false,
+                    globalWeek: startWeek,
+                    compId: phase.id,
+                    baseCompId: rootId,
+                    season,
+                    isBye: true,
+                    byePosition: teamsWithByes.indexOf(team) + 1
+                });
+            });
+            
+            if (teamsWithoutByes.length === 0) {
+                if (teamsWithByes.length === 1 && phase.awardsTitle) {
+                    const champion = teamsWithByes[0];
+                    if (!gameState.titles[champion.id]) gameState.titles[champion.id] = {};
+                    gameState.titles[champion.id][rootId] = (gameState.titles[champion.id][rootId] || 0) + 1;
+                    gameState.history.push({ 
+                        season: season, 
+                        teamId: champion.id, 
+                        targetCompId: rootId, 
+                        originName: stage.name + " - " + phase.name + " (WO)" 
+                    });
+                    if (rootId === gameState.playerBaseCompId || champion.id === gameState.playerTeamId) {
+                        setTimeout(() => showModal(`Campeão!`, `🏆 ${champion.name} venceu: ${phase.name} por WO!`), 400);
+                    }
+                }
+                
+                if (phaseIndex + 1 < stage.phases.length) {
+                    delete gameState.activePhases[phaseKey];
+                    startPhase(rootId, stageIndex, phaseIndex + 1, teamsWithByes, startWeek, season);
+                } else {
+                    delete gameState.activePhases[phaseKey];
+                    advanceToNextStageOrSeason(rootId, stageIndex, season);
+                }
+                return;
+            }
+        }
+    }
+    
+    newFixtures = newFixtures.filter((f, index, self) => 
+        index === self.findIndex(t => t.home === f.home && t.away === f.away && t.globalWeek === f.globalWeek && t.compId === f.compId)
+    );
+    
+    gameState.fixtures.push(...newFixtures);
+}
+
+function distributeTeamsInPots(teams, numGroups, prevPhaseRanking) {
+    if (!prevPhaseRanking || prevPhaseRanking.length === 0) {
+        return shuffleArray([...teams]);
+    }
+
+    const rankingMap = {};
+    prevPhaseRanking.forEach((entry, idx) => {
+        rankingMap[entry.teamId] = idx + 1;
+    });
+
+    const sortedTeams = [...teams].sort((a, b) => {
+        const rankA = rankingMap[a.id] || 999;
+        const rankB = rankingMap[b.id] || 999;
+        return rankA - rankB;
+    });
+
+    const totalTeams = sortedTeams.length;
+    const teamsPerPot = Math.ceil(totalTeams / numGroups);
+    const numPots = Math.ceil(totalTeams / teamsPerPot);
+
+    const pots = [];
+    for (let i = 0; i < numPots; i++) {
+        const start = i * teamsPerPot;
+        const end = Math.min(start + teamsPerPot, totalTeams);
+        if (start < totalTeams) {
+            pots.push(sortedTeams.slice(start, end));
+        }
+    }
+
+    const result = [];
+    const maxPotSize = Math.max(...pots.map(p => p.length));
+    
+    for (let i = 0; i < maxPotSize; i++) {
+        for (let potIdx = 0; potIdx < pots.length; potIdx++) {
+            if (i < pots[potIdx].length) {
+                result.push(pots[potIdx][i]);
+            }
+        }
+    }
+
+    return result;
 }

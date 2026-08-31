@@ -1,5 +1,3 @@
-// Sistema de Treinadores
-
 function confirmManagerName() {
     const input = document.getElementById('manager-name-input');
     const name = input.value.trim() || "Treinador";

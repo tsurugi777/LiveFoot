@@ -15,18 +15,18 @@
         <!-- TEAM SELECTION -->
         <div id="screen-select" class="absolute inset-0 z-50 bg-slate-900 overflow-y-auto p-8">
             <div class="absolute top-6 right-6 flex flex-col sm:flex-row gap-3 z-10">
-                <input type="file" id="import-db-input" class="hidden" accept=".json" onchange="importDB(event)">
+                <input type="file" id="import-db-input" class="hidden" accept=".json" onchange="window.importDB(event)">
                 <button onclick="document.getElementById('import-db-input').click()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2">
                     <i class="fas fa-file-import text-yellow-400"></i> Importar DB Clássico
                 </button>
-                <input type="file" id="import-team-input" class="hidden" accept=".json" onchange="importTeam(event)">
+                <input type="file" id="import-team-input" class="hidden" accept=".json" onchange="window.importTeam(event)">
                 <button onclick="document.getElementById('import-team-input').click()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2">
                     <i class="fas fa-users text-blue-400"></i> Importar Elenco (JSON)
                 </button>
-                <button onclick="exportDB()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2">
+                <button onclick="window.exportDB()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2">
                     <i class="fas fa-file-export text-emerald-400"></i> Exportar DB
                 </button>
-                <button onclick="openEditor()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2">
+                <button onclick="window.openEditor()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2">
                     <i class="fas fa-sliders-h text-blue-400"></i> Editor DB
                 </button>
             </div>
@@ -76,7 +76,7 @@
                             <span class="text-xs font-bold text-gray-600" id="pes-my-rating">OVR: 85</span>
                         </div>
                     </div>
-                    <button class="pes-btn px-10 py-2 font-bold text-xl text-gray-800 hover:text-black absolute left-1/2 transform -translate-x-1/2 bottom-0 z-20 flex flex-col items-center leading-none" onclick="advanceWeekManager()">
+                    <button class="pes-btn px-10 py-2 font-bold text-xl text-gray-800 hover:text-black absolute left-1/2 transform -translate-x-1/2 bottom-0 z-20 flex flex-col items-center leading-none" onclick="window.advanceWeekManager()">
                         <span>Next week</span>
                         <i class="fas fa-forward text-sm mt-1 text-gray-500"></i>
                     </button>
@@ -110,7 +110,7 @@
                         <i class="fas fa-futbol text-gray-400 text-xl"></i>
                         <span class="text-white font-bold text-lg tracking-wide uppercase" id="pes-content-title">Menu</span>
                     </div>
-                    <button class="bg-gradient-to-b from-gray-200 to-gray-400 text-black px-4 py-1.5 font-bold rounded shadow-lg border border-gray-500 hover:from-white hover:to-gray-300 active:scale-95 transition-transform flex items-center gap-2" onclick="switchView('home')">
+                    <button class="bg-gradient-to-b from-gray-200 to-gray-400 text-black px-4 py-1.5 font-bold rounded shadow-lg border border-gray-500 hover:from-white hover:to-gray-300 active:scale-95 transition-transform flex items-center gap-2" onclick="window.switchView('home')">
                         <i class="fas fa-times-circle text-red-600"></i> Voltar p/ Menu
                     </button>
                 </div>
@@ -127,10 +127,10 @@
                         <button onclick="document.getElementById('import-db-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-bold transition-colors border border-slate-600 shadow-md">
                             <i class="fas fa-file-import mr-2 text-yellow-400"></i> Importar
                         </button>
-                        <button onclick="exportDB()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-bold transition-colors border border-slate-600 shadow-md">
+                        <button onclick="window.exportDB()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-bold transition-colors border border-slate-600 shadow-md">
                             <i class="fas fa-file-export mr-2 text-emerald-400"></i> Exportar
                         </button>
-                        <button onclick="closeEditor()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-bold transition-colors border border-slate-600 shadow-md">
+                        <button onclick="window.closeEditor()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-bold transition-colors border border-slate-600 shadow-md">
                             <i class="fas fa-arrow-left mr-2"></i> Voltar
                         </button>
                     </div>
@@ -141,13 +141,13 @@
                         <div class="mb-4 flex flex-col gap-4 shrink-0">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-2xl font-bold text-slate-200" id="editor-country-title">Selecione um País</h3>
-                                <button onclick="saveEditorChanges()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 hidden flex items-center gap-2" id="btn-save-editor">
+                                <button onclick="window.saveEditorChanges()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 hidden flex items-center gap-2" id="btn-save-editor">
                                     <i class="fas fa-save"></i> Salvar
                                 </button>
                             </div>
                             <div class="flex gap-2 border-b border-slate-700 pb-2 hidden" id="editor-tabs">
-                                <button onclick="switchEditorMode('teams')" id="tab-teams" class="px-4 py-2 font-bold rounded-t-lg bg-blue-600 text-white transition-colors">Clubes</button>
-                                <button onclick="switchEditorMode('comps')" id="tab-comps" class="px-4 py-2 font-bold rounded-t-lg bg-transparent text-slate-400 hover:text-white transition-colors">Competições e Fases</button>
+                                <button onclick="window.switchEditorMode('teams')" id="tab-teams" class="px-4 py-2 font-bold rounded-t-lg bg-blue-600 text-white transition-colors">Clubes</button>
+                                <button onclick="window.switchEditorMode('comps')" id="tab-comps" class="px-4 py-2 font-bold rounded-t-lg bg-transparent text-slate-400 hover:text-white transition-colors">Competições e Fases</button>
                             </div>
                         </div>
                         <div id="editor-content-area" class="space-y-3 overflow-y-auto pr-2 pb-4 scrollbar-hide flex-1">
@@ -168,7 +168,7 @@
             <p class="text-black text-sm mb-4">Digite seu nome para começar a carreira:</p>
             <input type="text" id="manager-name-input" class="w-full border border-gray-400 p-2 text-sm bg-white text-black mb-4" placeholder="Seu nome..." value="Treinador">
             <div class="flex justify-center gap-3">
-                <button onclick="confirmManagerName()" class="classic-btn px-6 py-1 text-sm bg-green-200 font-bold">Confirmar</button>
+                <button onclick="window.confirmManagerName()" class="classic-btn px-6 py-1 text-sm bg-green-200 font-bold">Confirmar</button>
             </div>
         </div>
     </div>
