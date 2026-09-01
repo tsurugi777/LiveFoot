@@ -1,4 +1,129 @@
-// app.js - Arquivo Principal com UI Completa (Corrigido)
+// app.js - Arquivo Principal com UI Completa (Corrigido com Sistema de Fotos)
+
+// ==========================================
+// SISTEMA DE GERAÇÃO DE AVATARES E FOTOS
+// ==========================================
+
+const avatarCache = {};
+
+// Função interna que realmente gera o avatar
+function _generateAvatar(name, seed = null, size = 60) {
+    if (!name) name = 'Jogador';
+    
+    // Usa o nome como seed para consistência
+    const seedStr = seed || name;
+    
+    // Gera cores consistentes baseadas no nome
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) {
+        hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    const hue = Math.abs(hash % 360);
+    const saturation = 60 + (Math.abs(hash % 20));
+    const lightness = 45 + (Math.abs(hash % 30));
+    const bgColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    const textColor = lightness > 50 ? '#000000' : '#FFFFFF';
+    
+    // Pega a primeira letra de cada parte do nome (máx 2)
+    const parts = name.trim().split(' ');
+    let initials = parts[0].charAt(0).toUpperCase();
+    if (parts.length > 1) {
+        initials += parts[parts.length - 1].charAt(0).toUpperCase();
+    }
+    
+    // Cria o SVG do avatar
+    const svg = `
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="${size}" height="${size}" rx="${size/4}" fill="${bgColor}" />
+            <text x="${size/2}" y="${size/2 + 4}" font-family="Arial, sans-serif" 
+                  font-size="${size * 0.45}" font-weight="bold" 
+                  fill="${textColor}" text-anchor="middle" dominant-baseline="central">
+                ${initials}
+            </text>
+        </svg>
+    `;
+    
+    // Converte SVG para data URL
+    const encoded = encodeURIComponent(svg);
+    return `data:image/svg+xml;charset=utf-8,${encoded}`;
+}
+
+function getCachedAvatar(key, generator, ...args) {
+    if (!avatarCache[key]) {
+        avatarCache[key] = generator(...args);
+    }
+    return avatarCache[key];
+}
+
+// Gera um avatar baseado no nome e cor
+function generateAvatar(name, seed = null, size = 60) {
+    const cacheKey = `${name}_${seed || ''}_${size}`;
+    return getCachedAvatar(cacheKey, _generateAvatar, name, seed, size);
+}
+
+// Gera foto de jogador com base em nome, posição e time
+function generatePlayerPhoto(playerName, position = 'MC', seed = null) {
+    const seedStr = seed || `${playerName}_${position}`;
+    return generateAvatar(playerName, seedStr, 80);
+}
+
+// Gera foto de técnico
+function generateManagerPhoto(managerName, teamName = null, seed = null) {
+    const seedStr = seed || `${managerName}_${teamName || 'manager'}`;
+    return generateAvatar(managerName, seedStr, 70);
+}
+
+// Função para garantir que todos os jogadores tenham foto
+function ensurePlayerPhotos(players, teamId = null) {
+    if (!players || !Array.isArray(players)) return players;
+    
+    return players.map(player => {
+        if (!player.photoUrl) {
+            const seed = `${player.name}_${player.pos}_${teamId || player.id}`;
+            player.photoUrl = generatePlayerPhoto(player.name, player.pos, seed);
+        }
+        return player;
+    });
+}
+
+// Função para garantir que times tenham fotos de técnicos
+function ensureManagerPhotos(teams) {
+    if (!teams || typeof teams !== 'object') return teams;
+    
+    Object.keys(teams).forEach(teamId => {
+        const team = teams[teamId];
+        if (team && !team.managerPhotoUrl && team.managerName) {
+            const seed = `${team.managerName}_${teamId}`;
+            team.managerPhotoUrl = generateManagerPhoto(team.managerName, team.name, seed);
+        }
+    });
+    
+    return teams;
+}
+
+// Função para verificar e gerar fotos faltantes em todo o estado
+function ensureAllPhotos() {
+    // Garante fotos para todos os times
+    ensureManagerPhotos(gameState.teamMap);
+    
+    // Garante fotos para todos os jogadores do jogador
+    if (gameState.mySquad) {
+        gameState.mySquad = ensurePlayerPhotos(gameState.mySquad, gameState.playerTeamId);
+    }
+    
+    // Garante fotos para todos os jogadores de todos os times
+    Object.keys(gameState.teamMap).forEach(teamId => {
+        const team = gameState.teamMap[teamId];
+        if (team.generatedSquad) {
+            team.generatedSquad = ensurePlayerPhotos(team.generatedSquad, teamId);
+        }
+    });
+}
+
+// ==========================================
+// FIM DO SISTEMA DE AVATARES
+// ==========================================
 
 function advanceWeekManager() {
     let currentFixtures = gameState.fixtures.filter(f => f.globalWeek === gameState.currentWeek && !f.played && f.away !== null);
@@ -171,7 +296,7 @@ function renderClassicHub() {
     
     const mainContent = document.getElementById('main-content');
 
-    // Detalhes do jogador (SEM FORÇAS E FRAQUEZAS)
+    // Detalhes do jogador (COM FOTOS GERADAS)
     const playerDetailHtml = `
         <div class="flex flex-col bg-white h-full border border-gray-400 shadow-md">
             <div class="flex bg-black text-[#ffff00] p-2 gap-2 h-32 shrink-0">
@@ -252,6 +377,12 @@ function renderClassicHub() {
         });
         
         sortedSquad.forEach(p => {
+            // Garante que o jogador tenha foto
+            if (!p.photoUrl) {
+                const seed = `${p.name}_${p.pos}_${gameState.playerTeamId}`;
+                p.photoUrl = generatePlayerPhoto(p.name, p.pos, seed);
+            }
+            
             const tr = document.createElement('tr');
             tr.id = `row-${p.id}`; tr.onclick = () => selectPlayer(p.id);
             let avg = p.sRatings && p.sRatings.length ? (p.sRatings.reduce((a,b)=>a+b,0) / p.sRatings.length).toFixed(1) : '--';
@@ -267,8 +398,8 @@ function renderClassicHub() {
                 <td class="text-center font-bold">${p.pos.split('/')[0]}</td>
                 <td class="flex items-center gap-2 py-1">
                     <div class="w-6 h-6 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
-                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` : ''}
-                        <i class="fas fa-user text-[10px] text-gray-500 ${p.photoUrl ? 'hidden' : ''}"></i>
+                        <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <i class="fas fa-user text-[10px] text-gray-500 hidden"></i>
                     </div>
                     <span class="truncate max-w-[120px]">${p.name} ${badges}</span>
                 </td>
@@ -298,17 +429,18 @@ function renderClassicHub() {
             let playerName = 'Vazio';
 
             if (p) {
+                // Garante que o jogador tenha foto
+                if (!p.photoUrl) {
+                    const seed = `${p.name}_${p.pos}_${gameState.playerTeamId}`;
+                    p.photoUrl = generatePlayerPhoto(p.name, p.pos, seed);
+                }
+                
                 let pen = getPositionPenalty(p.pos, pos.role);
                 let displayOvr = Math.max(1, p.ovr + pen);
                 ovrHtml = pen < 0 ? `<span class="text-red-500 font-black">${displayOvr}</span>` : p.ovr;
                 playerName = p.name.split(' ').pop();
                 
-                if (p.photoUrl) {
-                    avatarHtml = `<img src="${p.photoUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><i class="fas fa-user text-xs text-gray-500 hidden"></i>`;
-                } else {
-                    let initials = p.name.substring(0,2).toUpperCase();
-                    avatarHtml = `<div class="w-full h-full flex items-center justify-center bg-gray-300 text-[12px] font-bold text-gray-700">${initials}</div>`;
-                }
+                avatarHtml = `<img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><i class="fas fa-user text-xs text-gray-500 hidden"></i>`;
             }
 
             return `
@@ -325,10 +457,23 @@ function renderClassicHub() {
         let benchHtml = gameState.myLineup.bench.map((pId, idx) => {
             let p = gameState.mySquad.find(x => x.id === pId);
             if(!p) return '';
+            
+            // Garante que o jogador tenha foto
+            if (!p.photoUrl) {
+                const seed = `${p.name}_${p.pos}_${gameState.playerTeamId}`;
+                p.photoUrl = generatePlayerPhoto(p.name, p.pos, seed);
+            }
+            
             let isSelected = selectedTacticsSlot === `bench-${idx}` ? 'bg-blue-900 text-white' : 'hover:bg-gray-200';
             return `
                 <div class="border-b border-gray-300 p-1 flex justify-between cursor-pointer text-[11px] ${isSelected}" onclick="selectTacticsSlot(${idx}, true)">
-                    <div class="flex items-center gap-1"><span class="font-bold w-6 text-center">${p.pos.split('/')[0]}</span> <span>${p.name}</span></div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-5 h-5 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
+                            <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <i class="fas fa-user text-[8px] text-gray-500 hidden"></i>
+                        </div>
+                        <span class="font-bold w-6 text-center">${p.pos.split('/')[0]}</span> <span>${p.name}</span>
+                    </div>
                     <span class="font-bold text-green-700">${p.ovr}</span>
                 </div>
             `;
@@ -630,6 +775,9 @@ function renderClassicHub() {
                 
                 if(!targetTeam.generatedSquad) targetTeam.generatedSquad = generateSquad(targetTeam.id, targetTeam.rating);
                 
+                // Garante fotos para os jogadores do time alvo
+                targetTeam.generatedSquad = ensurePlayerPhotos(targetTeam.generatedSquad, targetTeam.id);
+                
                 marketHTML = `
                     <div class="bg-white p-1 rounded shadow-md border border-gray-400">
                         <table class="w-full text-left border-collapse squad-table text-xs">
@@ -642,8 +790,8 @@ function renderClassicHub() {
                                         <td class="text-center font-bold">${p.pos.split('/')[0]}</td>
                                         <td class="flex items-center gap-2 py-1">
                                             <div class="w-6 h-6 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
-                                                ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` : ''}
-                                                <i class="fas fa-user text-[10px] text-gray-500 ${p.photoUrl ? 'hidden' : ''}"></i>
+                                                <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                                <i class="fas fa-user text-[10px] text-gray-500 hidden"></i>
                                             </div>
                                             <span class="truncate max-w-[120px]">${p.name}</span>
                                         </td>
@@ -678,8 +826,8 @@ function renderClassicHub() {
                                     <td class="text-center font-bold">${p.pos.split('/')[0]}</td>
                                     <td class="flex items-center gap-2 py-1">
                                         <div class="w-6 h-6 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
-                                            ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` : ''}
-                                            <i class="fas fa-user text-[10px] text-gray-500 ${p.photoUrl ? 'hidden' : ''}"></i>
+                                            <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                            <i class="fas fa-user text-[10px] text-gray-500 hidden"></i>
                                         </div>
                                         <span class="truncate max-w-[120px]">${p.name}</span>
                                     </td>
@@ -850,12 +998,15 @@ function renderClassicHub() {
             // CORRIGIDO: Exibe a foto do técnico ou placeholder
             let mgrPhotoHtml = '';
             if (isMyTeam || isHumanManaged) {
-                // Técnico humano - mostra ícone de usuário
-                mgrPhotoHtml = `<div class="manager-photo-placeholder" style="background: #4ade80; color: #000; font-weight: bold; font-size: 16px;"><i class="fas fa-user-tie"></i></div>`;
+                // Técnico humano - gera avatar baseado no nome
+                const mgrPhoto = generateManagerPhoto(mgrName, t.name, t.id);
+                mgrPhotoHtml = `<img src="${mgrPhoto}" class="manager-photo" style="width:32px;height:32px;border-radius:50%;border:2px solid #4ade80;object-fit:cover;">`;
             } else if (t.managerPhotoUrl) {
-                mgrPhotoHtml = `<img src="${t.managerPhotoUrl}" class="manager-photo" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'manager-photo-placeholder\\'><i class=\\'fas fa-user-tie\\'></i></div>';">`;
+                mgrPhotoHtml = `<img src="${t.managerPhotoUrl}" class="manager-photo" style="width:32px;height:32px;border-radius:50%;border:2px solid #ccc;object-fit:cover;" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'manager-photo-placeholder\\' style=\\'width:32px;height:32px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;\\'><i class=\\'fas fa-user-tie\\'></i></div>';">`;
             } else {
-                mgrPhotoHtml = `<div class="manager-photo-placeholder"><i class="fas fa-user-tie"></i></div>`;
+                // Gera foto para técnico que não tem
+                t.managerPhotoUrl = generateManagerPhoto(mgrName, t.name, t.id);
+                mgrPhotoHtml = `<img src="${t.managerPhotoUrl}" class="manager-photo" style="width:32px;height:32px;border-radius:50%;border:2px solid #ccc;object-fit:cover;">`;
             }
             
             const tLogo = t.logoUrl ? `<img src="${t.logoUrl}" class="team-logo-small" onerror="this.style.display='none';">` : '';
@@ -957,6 +1108,9 @@ window.importDB = importDB;
 window.importTeam = importTeam;
 window.exportDB = exportDB;
 window.confirmManagerName = confirmManagerName;
+window.generatePlayerPhoto = generatePlayerPhoto;
+window.generateManagerPhoto = generateManagerPhoto;
+window.ensureAllPhotos = ensureAllPhotos;
 
 // Inicialização
 window.onload = () => {
