@@ -69,69 +69,106 @@ function selectPlayer(playerId) {
     if(selectedRow) selectedRow.classList.add('selected');
 
     const p = gameState.mySquad.find(x => x.id === playerId);
-    if(p) {
-        const box = document.getElementById('player-detail-box');
-        const empty = document.getElementById('player-detail-empty');
-        if(box && empty) {
-            box.classList.replace('hidden', 'flex');
-            empty.classList.add('hidden');
-            
-            const primaryPos = p.pos.split('/')[0];
-            let flagObj = nationalityToFlag[p.nationality] || '🌐';
-            
-            document.getElementById('pd-name').innerText = p.name;
-            document.getElementById('pd-pos-ovr').innerText = `${primaryPos}:${p.ovr}`;
-            document.getElementById('pd-role').innerHTML = `${flagObj} ${p.pos} - Pé ${p.leg} - ${p.age} anos${p.isYouth ? ' ⭐ Jovem da Base' : ''}`;
-            document.getElementById('pd-contract').innerText = `Contrato até: ${p.contractEnd}`;
-            document.getElementById('pd-value').innerText = p.value + "M";
-            
-            const photoEl = document.getElementById('pd-photo');
-            const fallbackEl = document.getElementById('pd-photo-fallback');
-            if (photoEl) {
-                if (p.photoUrl) {
-                    photoEl.src = p.photoUrl;
-                    photoEl.style.display = 'block';
-                    if(fallbackEl) fallbackEl.style.display = 'none';
-                } else {
-                    photoEl.style.display = 'none';
-                    if(fallbackEl) fallbackEl.style.display = 'block';
-                }
-            }
-            
-            let salStr = String(p.salary);
-            if (!salStr.includes('mil') && !salStr.includes('M')) salStr += " mil";
-            document.getElementById('pd-salary').innerText = salStr;
-            
-            document.getElementById('pd-s-jogos').innerText = p.sGames || 0;
-            document.getElementById('pd-c-jogos').innerText = p.cGames || 0;
-            document.getElementById('pd-s-gols').innerText = p.sGoals || 0;
-            document.getElementById('pd-c-gols').innerText = p.cGoals || 0;
-            document.getElementById('pd-s-ass').innerText = p.sAssists || 0;
-            document.getElementById('pd-c-ass').innerText = p.cAssists || 0;
-            document.getElementById('pd-s-yel').innerText = p.sYellows || 0;
-            document.getElementById('pd-c-yel').innerText = p.cYellows || 0;
-            document.getElementById('pd-s-red').innerText = p.sReds || 0;
-            document.getElementById('pd-c-red').innerText = p.cReds || 0;
-            document.getElementById('pd-strengths').innerText = p.strengths ? p.strengths.join(', ') : '--';
-            document.getElementById('pd-weaknesses').innerText = p.weaknesses ? p.weaknesses.join(', ') : '--';
-            
-            let avg = p.sRatings && p.sRatings.length ? (p.sRatings.reduce((a,b)=>a+b,0) / p.sRatings.length).toFixed(1) : '--';
-            document.getElementById('pd-s-nota').innerText = avg;
-            document.getElementById('pd-c-nota').innerText = avg;
-            
-            const histContainer = document.getElementById('pd-career-history');
-            if (histContainer) {
-                if (!p.careerStats || p.careerStats.length === 0) {
-                    histContainer.innerHTML = '<div class="italic text-center py-2 text-gray-500">Nenhum registro anterior.</div>';
-                } else {
-                    histContainer.innerHTML = p.careerStats.slice().reverse().map(h => `
-                        <div class="flex justify-between border-b border-gray-200 pb-0.5 text-xs">
-                            <span class="font-bold w-1/3 truncate" title="${h.teamName}">${h.season} ${h.teamName}</span>
-                            <span class="w-2/3 text-right">J:${h.games} G:${h.goals} A:${h.assists} Nt:${h.rating}</span>
-                        </div>
-                    `).join('');
-                }
-            }
+    if(!p) {
+        console.warn('Jogador não encontrado:', playerId);
+        return;
+    }
+
+    const box = document.getElementById('player-detail-box');
+    const empty = document.getElementById('player-detail-empty');
+    
+    if(!box || !empty) {
+        console.warn('Elementos de detalhe do jogador não encontrados');
+        return;
+    }
+    
+    box.classList.replace('hidden', 'flex');
+    empty.classList.add('hidden');
+    
+    // Verifica se cada elemento existe antes de definir innerText
+    const nameEl = document.getElementById('pd-name');
+    if (nameEl) nameEl.innerText = p.name || 'Jogador';
+    
+    const posOvrEl = document.getElementById('pd-pos-ovr');
+    if (posOvrEl) {
+        const primaryPos = p.pos ? p.pos.split('/')[0] : 'MC';
+        posOvrEl.innerText = `${primaryPos}:${p.ovr || 50}`;
+    }
+    
+    const roleEl = document.getElementById('pd-role');
+    if (roleEl) {
+        let flagObj = nationalityToFlag[p.nationality] || '🌐';
+        roleEl.innerHTML = `${flagObj} ${p.pos || 'MC'} - Pé ${p.leg || 'D'} - ${p.age || 20} anos${p.isYouth ? ' ⭐ Jovem da Base' : ''}`;
+    }
+    
+    const contractEl = document.getElementById('pd-contract');
+    if (contractEl) contractEl.innerText = `Contrato até: ${p.contractEnd || '31/12/2026'}`;
+    
+    const valueEl = document.getElementById('pd-value');
+    if (valueEl) valueEl.innerText = (p.value || 1) + "M";
+    
+    // Atualiza a foto
+    const photoEl = document.getElementById('pd-photo');
+    const fallbackEl = document.getElementById('pd-photo-fallback');
+    if (photoEl && fallbackEl) {
+        if (p.photoUrl) {
+            photoEl.src = p.photoUrl;
+            photoEl.style.display = 'block';
+            fallbackEl.style.display = 'none';
+        } else {
+            photoEl.style.display = 'none';
+            fallbackEl.style.display = 'block';
+        }
+    }
+    
+    const salaryEl = document.getElementById('pd-salary');
+    if (salaryEl) {
+        let salStr = String(p.salary || '0');
+        if (!salStr.includes('mil') && !salStr.includes('M')) salStr += " mil";
+        salaryEl.innerText = salStr;
+    }
+    
+    // Atualiza estatísticas com verificações
+    const stats = {
+        'pd-s-jogos': p.sGames || 0,
+        'pd-c-jogos': p.cGames || 0,
+        'pd-s-gols': p.sGoals || 0,
+        'pd-c-gols': p.cGoals || 0,
+        'pd-s-ass': p.sAssists || 0,
+        'pd-c-ass': p.cAssists || 0,
+        'pd-s-yel': p.sYellows || 0,
+        'pd-c-yel': p.cYellows || 0,
+        'pd-s-red': p.sReds || 0,
+        'pd-c-red': p.cReds || 0
+    };
+    
+    Object.keys(stats).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = stats[id];
+    });
+    
+    // Notas
+    const avg = p.sRatings && p.sRatings.length ? 
+        (p.sRatings.reduce((a,b) => a + b, 0) / p.sRatings.length).toFixed(1) : '--';
+    
+    const sNotaEl = document.getElementById('pd-s-nota');
+    if (sNotaEl) sNotaEl.innerText = avg;
+    
+    const cNotaEl = document.getElementById('pd-c-nota');
+    if (cNotaEl) cNotaEl.innerText = avg;
+    
+    // Histórico de carreira
+    const histContainer = document.getElementById('pd-career-history');
+    if (histContainer) {
+        if (!p.careerStats || p.careerStats.length === 0) {
+            histContainer.innerHTML = '<div class="italic text-center py-2 text-gray-500">Nenhum registro anterior.</div>';
+        } else {
+            histContainer.innerHTML = p.careerStats.slice().reverse().map(h => `
+                <div class="flex justify-between border-b border-gray-200 pb-0.5 text-xs">
+                    <span class="font-bold w-1/3 truncate" title="${h.teamName}">${h.season} ${h.teamName}</span>
+                    <span class="w-2/3 text-right">J:${h.games} G:${h.goals} A:${h.assists} Nt:${h.rating}</span>
+                </div>
+            `).join('');
         }
     }
 }

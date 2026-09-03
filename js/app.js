@@ -1,19 +1,17 @@
-// app.js - Arquivo Principal com UI Completa (Corrigido com Sistema de Fotos)
+// app.js - Arquivo Principal com UI Completa (Corrigido com Sistema de Fotos e Verificações)
 
 // ==========================================
-// SISTEMA DE GERAÇÃO DE AVATARES E FOTOS
+// SISTEMA DE GERAÇÃO DE AVATARES E FOTOS (VERSÃO CANVAS)
 // ==========================================
 
 const avatarCache = {};
 
-// Função interna que realmente gera o avatar
+// Função interna que realmente gera o avatar usando Canvas
 function _generateAvatar(name, seed = null, size = 60) {
     if (!name) name = 'Jogador';
     
-    // Usa o nome como seed para consistência
     const seedStr = seed || name;
     
-    // Gera cores consistentes baseadas no nome
     let hash = 0;
     for (let i = 0; i < seedStr.length; i++) {
         hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
@@ -25,28 +23,65 @@ function _generateAvatar(name, seed = null, size = 60) {
     const bgColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     const textColor = lightness > 50 ? '#000000' : '#FFFFFF';
     
-    // Pega a primeira letra de cada parte do nome (máx 2)
     const parts = name.trim().split(' ');
     let initials = parts[0].charAt(0).toUpperCase();
     if (parts.length > 1) {
         initials += parts[parts.length - 1].charAt(0).toUpperCase();
     }
     
-    // Cria o SVG do avatar
-    const svg = `
-        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="${size}" height="${size}" rx="${size/4}" fill="${bgColor}" />
-            <text x="${size/2}" y="${size/2 + 4}" font-family="Arial, sans-serif" 
-                  font-size="${size * 0.45}" font-weight="bold" 
+    // Usa Canvas para gerar imagem PNG (melhor compatibilidade)
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Desenha fundo arredondado
+        const radius = size / 4;
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(size - radius, 0);
+        ctx.quadraticCurveTo(size, 0, size, radius);
+        ctx.lineTo(size, size - radius);
+        ctx.quadraticCurveTo(size, size, size - radius, size);
+        ctx.lineTo(radius, size);
+        ctx.quadraticCurveTo(0, size, 0, size - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        
+        // Desenha texto
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${size * 0.45}px Arial, sans-serif`;
+        ctx.fillStyle = textColor;
+        ctx.fillText(initials, size/2, size/2 + size*0.08);
+        
+        return canvas.toDataURL('image/png');
+    } catch (e) {
+        // Fallback para SVG se canvas falhar
+        console.warn('Canvas falhou, usando SVG fallback para', name);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+            <rect width="${size}" height="${size}" rx="${Math.round(size/4)}" fill="${bgColor}" />
+            <text x="${size/2}" y="${size/2 + Math.round(size*0.08)}" font-family="Arial, sans-serif" 
+                  font-size="${Math.round(size * 0.45)}" font-weight="bold" 
                   fill="${textColor}" text-anchor="middle" dominant-baseline="central">
                 ${initials}
             </text>
-        </svg>
-    `;
-    
-    // Converte SVG para data URL
-    const encoded = encodeURIComponent(svg);
-    return `data:image/svg+xml;charset=utf-8,${encoded}`;
+        </svg>`;
+        
+        const encoded = svg
+            .replace(/%/g, '%25')
+            .replace(/</g, '%3C')
+            .replace(/>/g, '%3E')
+            .replace(/"/g, '%22')
+            .replace(/#/g, '%23')
+            .replace(/&/g, '%26');
+        
+        return `data:image/svg+xml;charset=utf-8,${encoded}`;
+    }
 }
 
 function getCachedAvatar(key, generator, ...args) {
@@ -65,7 +100,12 @@ function generateAvatar(name, seed = null, size = 60) {
 // Gera foto de jogador com base em nome, posição e time
 function generatePlayerPhoto(playerName, position = 'MC', seed = null) {
     const seedStr = seed || `${playerName}_${position}`;
-    return generateAvatar(playerName, seedStr, 80);
+    try {
+        return generateAvatar(playerName, seedStr, 80);
+    } catch (e) {
+        console.warn('Erro ao gerar foto para', playerName);
+        return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23ccc%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2232%22 fill=%22%23999%22%3E?%3C/text%3E%3C/svg%3E';
+    }
 }
 
 // Gera foto de técnico
@@ -215,6 +255,16 @@ function advanceWeekManager() {
 }
 
 function renderClassicHub() {
+    // Verifica se os elementos principais existem
+    const dashboard = document.getElementById('pes-dashboard');
+    const overlay = document.getElementById('pes-main-content-overlay');
+    const mainContent = document.getElementById('main-content');
+    
+    if (!dashboard || !overlay || !mainContent) {
+        console.error('Elementos principais do hub não encontrados');
+        return;
+    }
+    
     const myTeam = gameState.teamMap[gameState.playerTeamId];
     
     if (currentMainView === 'home') {
@@ -294,7 +344,7 @@ function renderClassicHub() {
     const activeNav = navItems.find(i => i.id === currentMainView);
     document.getElementById('pes-content-title').innerText = activeNav ? activeNav.label : (currentMainView === 'match' ? 'Transmissão Ao Vivo' : 'Menu');
     
-    const mainContent = document.getElementById('main-content');
+    const mainContentEl = document.getElementById('main-content');
 
     // Detalhes do jogador (COM FOTOS GERADAS)
     const playerDetailHtml = `
@@ -345,7 +395,7 @@ function renderClassicHub() {
 
     // TELA SQUAD (ELENCO)
     if (currentMainView === 'squad') {
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="flex flex-col md:flex-row gap-2 h-full w-full">
                 <div class="flex-1 bg-white h-full overflow-auto classic-border-inset">
                     <table class="w-full text-left border-collapse squad-table" id="squad-table-el">
@@ -479,7 +529,7 @@ function renderClassicHub() {
             `;
         }).join('');
 
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-white h-full w-full flex flex-col classic-border-inset overflow-hidden shadow-inner">
                 <div class="p-1 bg-[#c0c0c0] border-b border-black flex gap-2 items-center shrink-0">
                     <label class="font-bold text-[11px]">Formação:</label>
@@ -516,7 +566,7 @@ function renderClassicHub() {
         
         let isMyTeam = liveMatch.fixture.home === gameState.playerTeamId || liveMatch.fixture.away === gameState.playerTeamId;
 
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-white h-full w-full flex flex-col classic-border-inset shadow-inner">
                 <div class="bg-gradient-to-b from-gray-800 to-black text-[#ffff00] p-3 flex justify-between font-bold text-lg sm:text-2xl border-b border-gray-600">
                     <span class="truncate text-right flex-1">${homeTeam.name}</span>
@@ -563,7 +613,7 @@ function renderClassicHub() {
             </div>
         `).join('') : '<div class="text-[11px] text-gray-600 font-bold italic bg-white/50 p-2 rounded border border-gray-300">Caixa de entrada vazia.</div>';
 
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-1 overflow-auto">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -735,7 +785,7 @@ function renderClassicHub() {
             }
         }
 
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-1">
                 <div class="pes-glass rounded-lg border border-gray-400 p-2 flex gap-2 shadow-md text-xs items-center shrink-0 flex-wrap">
                     <span class="font-bold">Filtros:</span>
@@ -845,7 +895,7 @@ function renderClassicHub() {
             `;
         }
 
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-1">
                 <div class="flex gap-2 p-2 pes-glass rounded-lg border border-gray-400 shadow-md">
                     <button class="pes-btn px-4 py-1.5 font-bold text-xs ${marketState.tab==='buy'?'text-blue-900 border-blue-500':'text-gray-600'}" onclick="marketState.tab='buy'; switchView('market');"><i class="fas fa-shopping-cart"></i> Comprar / Emprestar</button>
@@ -877,7 +927,7 @@ function renderClassicHub() {
         const currentPrice = myTeam.ticketPrice || recPrice;
         const stadiumName = myTeam.stadium || (myTeam.name + " Stadium");
         
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-4 items-center justify-center relative">
                 <div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
                 
@@ -968,7 +1018,7 @@ function renderClassicHub() {
             </table></div>`;
         }
         
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-1">
                 <div class="pes-glass rounded-lg border border-gray-400 p-2 flex gap-2 shadow-md text-xs items-center mb-2">
                     <label class="font-bold p-0.5">Filtrar Histórico do País:</label>
@@ -1029,7 +1079,7 @@ function renderClassicHub() {
             </tr>`;
         }).join('');
 
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-1">
                 <div class="pes-glass rounded-lg border border-gray-400 p-2 flex gap-2 shadow-md text-xs items-center mb-2">
                     <label class="font-bold ml-2">Explorar Mercado em:</label>
@@ -1063,7 +1113,7 @@ function renderClassicHub() {
 
     // TELA OPTIONS (SISTEMA)
     } else if (currentMainView === 'options') {
-        mainContent.innerHTML = `
+        mainContentEl.innerHTML = `
             <div class="bg-transparent h-full w-full flex flex-col p-4 items-center justify-center relative">
                 <div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
                 <div class="pes-glass rounded-2xl border-2 border-gray-400 p-8 flex flex-col items-center gap-6 w-96 shadow-[0_10px_30px_rgba(0,0,0,0.5)] relative z-10">
