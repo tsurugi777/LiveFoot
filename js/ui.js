@@ -546,57 +546,96 @@ function showCompetitionRules(compId) {
 
 function renderEditorCountries() {
     const container = document.getElementById('editor-countries');
+    if (!container) {
+        console.error('Container editor-countries não encontrado');
+        return;
+    }
+    
     container.innerHTML = '';
-    const countriesToShow = db.countries.filter(c => db.competitions.some(comp => comp.countryId === c.id));
+    
+    if (!db || !db.countries) {
+        container.innerHTML = '<div class="text-slate-500 text-center py-4">Nenhum país disponível.</div>';
+        return;
+    }
+    
+    const countriesToShow = db.countries.filter(c => 
+        db.competitions && db.competitions.some(comp => comp.countryId === c.id)
+    );
+
+    if (countriesToShow.length === 0) {
+        container.innerHTML = '<div class="text-slate-500 text-center py-4">Nenhum país com competições disponíveis.</div>';
+        return;
+    }
 
     countriesToShow.forEach(c => {
         const btn = document.createElement('button');
         btn.className = `p-3 rounded-xl text-left font-bold transition-all border ${currentEditorCountry === c.id ? 'bg-blue-600 border-blue-500 text-white shadow-md transform scale-[1.02]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`;
-        btn.innerHTML = `<span class="text-xl mr-2 drop-shadow-md">${c.flag}</span> ${c.name}`;
-        btn.onclick = () => selectEditorCountry(c.id);
+        btn.innerHTML = `<span class="text-xl mr-2 drop-shadow-md">${c.flag || '🏳️'}</span> ${c.name}`;
+        btn.onclick = () => {
+            if (typeof selectEditorCountry === 'function') {
+                selectEditorCountry(c.id);
+            }
+        };
         container.appendChild(btn);
     });
 
-    if (!currentEditorCountry && countriesToShow.length > 0) selectEditorCountry(countriesToShow[0].id);
-    else if (currentEditorCountry) selectEditorCountry(currentEditorCountry);
+    if (!currentEditorCountry && countriesToShow.length > 0) {
+        if (typeof selectEditorCountry === 'function') {
+            selectEditorCountry(countriesToShow[0].id);
+        }
+    } else if (currentEditorCountry) {
+        if (typeof selectEditorCountry === 'function') {
+            selectEditorCountry(currentEditorCountry);
+        }
+    }
 }
 
 function selectEditorCountry(countryId) {
     currentEditorCountry = countryId;
-    Array.from(document.getElementById('editor-countries').children).forEach(btn => {
-        if (btn.onclick.toString().includes(countryId)) btn.className = 'p-3 rounded-xl text-left font-bold transition-all border bg-blue-600 border-blue-500 text-white shadow-md transform scale-[1.02]';
-        else btn.className = 'p-3 rounded-xl text-left font-bold transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700';
-    });
-    const country = db.countries.find(c => c.id === countryId);
-    document.getElementById('editor-country-title').innerHTML = `<span class="text-3xl mr-2 drop-shadow-md">${country.flag}</span> ${country.name}`;
-    document.getElementById('btn-save-editor').classList.remove('hidden');
-    document.getElementById('editor-tabs').classList.remove('hidden');
-    renderEditorContent();
-}
-
-function switchEditorMode(mode) {
-    currentEditorMode = mode;
-    if (mode === 'teams') {
-        document.getElementById('tab-teams').className = 'px-4 py-2 font-bold rounded-t-lg bg-blue-600 text-white transition-colors';
-        document.getElementById('tab-comps').className = 'px-4 py-2 font-bold rounded-t-lg bg-transparent text-slate-400 hover:text-white transition-colors';
-    } else {
-        document.getElementById('tab-teams').className = 'px-4 py-2 font-bold rounded-t-lg bg-transparent text-slate-400 hover:text-white transition-colors';
-        document.getElementById('tab-comps').className = 'px-4 py-2 font-bold rounded-t-lg bg-blue-600 text-white transition-colors';
+    
+    // Atualiza os botões
+    const container = document.getElementById('editor-countries');
+    if (container) {
+        Array.from(container.children).forEach(btn => {
+            const isSelected = btn.onclick && btn.onclick.toString().includes(countryId);
+            btn.className = `p-3 rounded-xl text-left font-bold transition-all border ${isSelected ? 'bg-blue-600 border-blue-500 text-white shadow-md transform scale-[1.02]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`;
+        });
     }
-    if(currentEditorCountry) renderEditorContent();
-}
-
-function buildSourceOptions(selectedId) {
-    let opts = `<option value="lib_champs" ${selectedId === 'lib_champs' ? 'selected' : ''}>[Especial] Campeão Continental Anterior</option>`;
-    db.competitions.forEach(c => {
-        opts += `<option value="${c.id}" ${selectedId === c.id ? 'selected' : ''}>[Geral] ${c.name}</option>`;
-        if (c.phases) c.phases.forEach(p => { opts += `<option value="${p.id}" ${selectedId === p.id ? 'selected' : ''}>[Fase] ${c.name} - ${p.name}</option>`; });
-    });
-    return opts;
+    
+    const country = db.countries.find(c => c.id === countryId);
+    const titleEl = document.getElementById('editor-country-title');
+    if (titleEl && country) {
+        titleEl.innerHTML = `<span class="text-3xl mr-2 drop-shadow-md">${country.flag || '🏳️'}</span> ${country.name}`;
+    }
+    
+    const saveBtn = document.getElementById('btn-save-editor');
+    if (saveBtn) saveBtn.classList.remove('hidden');
+    
+    const tabs = document.getElementById('editor-tabs');
+    if (tabs) tabs.classList.remove('hidden');
+    
+    if (typeof renderEditorContent === 'function') {
+        renderEditorContent();
+    }
 }
 
 function renderEditorContent() {
     const container = document.getElementById('editor-content-area');
+    if (!container) {
+        console.error('Container editor-content-area não encontrado');
+        return;
+    }
+    
+    if (!currentEditorCountry) {
+        container.innerHTML = '<div class="text-slate-500 text-center py-20">Selecione um país para começar.</div>';
+        return;
+    }
+    
+    if (!db || !db.competitions) {
+        container.innerHTML = '<div class="text-slate-500 text-center py-20">Banco de dados não disponível.</div>';
+        return;
+    }
+    
     const compsInCountry = db.competitions.filter(comp => comp.countryId === currentEditorCountry);
     
     if (currentEditorMode === 'teams') {
@@ -608,21 +647,21 @@ function renderEditorContent() {
         } else {
             container.innerHTML = teams.map(t => `
                 <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-700/30 transition-colors">
-                    ${t.logoUrl ? `<img src="${t.logoUrl}" class="w-12 h-12 object-contain drop-shadow-md">` : `<div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl text-white shadow-inner border-2 border-slate-600 flex-shrink-0" style="background-color: ${t.color}" id="preview-color-${t.id}">${t.name.charAt(0)}</div>`}
+                    ${t.logoUrl ? `<img src="${t.logoUrl}" class="w-12 h-12 object-contain drop-shadow-md" onerror="this.style.display='none';">` : `<div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl text-white shadow-inner border-2 border-slate-600 flex-shrink-0" style="background-color: ${t.color || '#3b82f6'}" id="preview-color-${t.id}">${t.name ? t.name.charAt(0) : '?'}</div>`}
                     <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div class="md:col-span-6 flex flex-col">
                             <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider">Nome do Clube</label>
-                            <input type="text" id="edit-name-${t.id}" value="${t.name}" class="bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" oninput="document.getElementById('preview-color-${t.id}').innerText = this.value.charAt(0)">
+                            <input type="text" id="edit-name-${t.id}" value="${t.name || ''}" class="bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" oninput="document.getElementById('preview-color-${t.id}').innerText = this.value.charAt(0)">
                         </div>
                         <div class="md:col-span-3 flex flex-col">
                             <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider">Força (OVR)</label>
-                            <input type="number" id="edit-rating-${t.id}" value="${t.rating}" min="1" max="99" class="bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 transition-colors">
+                            <input type="number" id="edit-rating-${t.id}" value="${t.rating || 50}" min="1" max="99" class="bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 transition-colors">
                         </div>
                         <div class="md:col-span-3 flex flex-col">
                             <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider">Cor Principal</label>
                             <div class="flex items-center gap-3 bg-slate-800 border border-slate-600 rounded-lg p-1.5 focus-within:border-blue-500 transition-colors">
-                                <input type="color" id="edit-color-${t.id}" value="${t.color}" class="h-6 w-8 rounded cursor-pointer bg-transparent border-0" oninput="document.getElementById('preview-color-${t.id}').style.backgroundColor = this.value; document.getElementById('hex-label-${t.id}').innerText = this.value">
-                                <span class="text-xs text-slate-300 font-mono uppercase" id="hex-label-${t.id}">${t.color}</span>
+                                <input type="color" id="edit-color-${t.id}" value="${t.color || '#3b82f6'}" class="h-6 w-8 rounded cursor-pointer bg-transparent border-0" oninput="document.getElementById('preview-color-${t.id}').style.backgroundColor = this.value; document.getElementById('hex-label-${t.id}').innerText = this.value">
+                                <span class="text-xs text-slate-300 font-mono uppercase" id="hex-label-${t.id}">${t.color || '#3b82f6'}</span>
                             </div>
                         </div>
                     </div>
@@ -630,195 +669,25 @@ function renderEditorContent() {
             `).join('');
         }
     } else {
-        const compIdsInCountry = compsInCountry.map(c => c.id);
-        const teamsInCountry = db.teams.filter(t => compIdsInCountry.includes(t.compId)).sort((a,b) => a.name.localeCompare(b.name));
-
+        // Modo competições
         let html = `<div class="flex justify-end mb-4 border-b border-slate-700 pb-4">
-            <button onclick="createNewCompetition()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 flex items-center gap-2" id="btn-create-comp">
+            <button onclick="if(typeof createNewCompetition === 'function') createNewCompetition();" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 flex items-center gap-2" id="btn-create-comp">
                 <i class="fas fa-plus"></i> Criar Nova Competição
             </button>
         </div>`;
 
-        html += compsInCountry.map(comp => `
-            <div class="bg-slate-900/50 p-5 rounded-xl border border-slate-700/50 mb-4">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
-                    <div class="md:col-span-4">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Nome do Torneio</label>
-                        <input type="text" id="edit-comp-name-${comp.id}" value="${comp.name}" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors font-bold text-lg">
-                    </div>
-                    <div class="md:col-span-3">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Nome Curto</label>
-                        <input type="text" id="edit-comp-hist-${comp.id}" value="${comp.historyName || ''}" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500">
-                    </div>
-                    <div class="md:col-span-4">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block" title="Define se é um torneio isolado ou faz parte de outro">Pertence a (Hierarquia)</label>
-                        <select id="edit-comp-parent-${comp.id}" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500 outline-none">
-                            <option value="NONE" ${comp.parentId === 'NONE' || !comp.parentId ? 'selected' : ''}>[Torneio Base] Nenhuma</option>
-                            ${compsInCountry.filter(c => c.id !== comp.id).map(c => `<option value="${c.id}" ${comp.parentId === c.id ? 'selected' : ''}>[Filha de] ${c.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="md:col-span-1 flex flex-col items-center justify-center pt-2">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider text-center block">Dá Campeão<br>Anual?</label>
-                        <input type="checkbox" id="edit-comp-global-${comp.id}" ${comp.awardsGlobalTitle ? 'checked' : ''} class="w-5 h-5 accent-emerald-500 cursor-pointer">
-                    </div>
+        if (compsInCountry.length === 0) {
+            html += `<div class="text-slate-500 text-center py-10 italic">Nenhuma competição cadastrada neste país.</div>`;
+        } else {
+            html += compsInCountry.map(comp => `
+                <div class="bg-slate-900/50 p-5 rounded-xl border border-slate-700/50 mb-4">
+                    <div class="text-sm font-bold text-white mb-2">${comp.name || 'Sem nome'}</div>
+                    <div class="text-xs text-slate-400">ID: ${comp.id}</div>
+                    <div class="text-xs text-slate-400">País: ${comp.countryId}</div>
+                    <div class="text-xs text-slate-400">Fases: ${comp.phases ? comp.phases.length : 0}</div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 border-b border-slate-700/50 pb-4">
-                    <div class="md:col-span-4">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Ano Início</label>
-                        <input type="number" id="edit-comp-start-year-${comp.id}" value="${comp.startYear || 2026}" min="1900" max="2100" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500">
-                    </div>
-                    <div class="md:col-span-4">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Mês Início</label>
-                        <input type="number" id="edit-comp-start-${comp.id}" value="${comp.startMonth}" min="1" max="12" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500">
-                    </div>
-                    <div class="md:col-span-4">
-                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Mês Fim</label>
-                        <input type="number" id="edit-comp-end-${comp.id}" value="${comp.endMonth || 12}" min="1" max="12" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500">
-                    </div>
-                </div>
-
-                <div class="mb-5 p-4 bg-slate-900/80 rounded-xl border border-slate-700/80">
-                    <div class="flex items-center justify-between mb-3 border-b border-slate-700 pb-2">
-                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider"><i class="fas fa-medal text-yellow-500 mr-1"></i> Títulos Iniciais (Histórico)</div>
-                        <button onclick="addTitleToComp('${comp.id}')" class="text-[10px] bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 px-3 py-1.5 rounded-lg border border-yellow-600/50 transition-colors font-bold shadow-sm"><i class="fas fa-plus mr-1"></i> Adicionar Campeão</button>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        ${(!comp.initialTitles || Object.keys(comp.initialTitles).length === 0) ? '<div class="text-xs text-slate-500 italic py-1 sm:col-span-2">Nenhum campeão histórico registrado.</div>' : Object.keys(comp.initialTitles).map((tId, tIdx) => `
-                            <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-600 relative group shadow-sm">
-                                <button onclick="removeTitleFromComp('${comp.id}', '${tId}')" class="absolute -right-2 -top-2 bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md text-xs z-10" title="Remover"><i class="fas fa-times"></i></button>
-                                <select id="edit-title-team-${comp.id}-${tIdx}" class="flex-1 bg-slate-900 border border-slate-600 rounded p-1.5 text-xs text-white font-semibold outline-none focus:border-yellow-500">
-                                    ${teamsInCountry.map(t => `<option value="${t.id}" ${t.id === tId ? 'selected' : ''}>${t.name}</option>`).join('')}
-                                </select>
-                                <div class="flex flex-col items-center">
-                                    <label class="text-[8px] text-slate-500 uppercase font-bold mb-0.5">Qtd</label>
-                                    <input type="number" id="edit-title-count-${comp.id}-${tIdx}" value="${comp.initialTitles[tId]}" min="1" class="w-12 bg-slate-900 border border-slate-600 rounded p-1 text-xs text-yellow-400 font-bold text-center outline-none focus:border-yellow-500">
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                
-                <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-3">
-                    <h4 class="text-sm font-bold text-slate-300"><i class="fas fa-project-diagram mr-2 text-blue-400"></i> Estrutura de Fases</h4>
-                    <button onclick="addPhaseToComp('${comp.id}')" class="text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 px-2 py-1 rounded border border-blue-600/50 transition-colors"><i class="fas fa-plus mr-1"></i> Adicionar Fase</button>
-                </div>
-
-                <div class="space-y-3 pl-2 border-l-2 border-slate-700">
-                    ${comp.phases && comp.phases.length > 0 ? comp.phases.map((phase, pIdx) => `
-                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-600 shadow-sm relative group">
-                            <span class="absolute -left-6 top-4 bg-slate-700 text-slate-400 text-xs w-5 h-5 flex items-center justify-center rounded-full font-bold border border-slate-600">${pIdx+1}</span>
-                            <button onclick="removePhaseFromComp('${comp.id}', ${pIdx})" class="absolute top-2 right-2 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Excluir Fase"><i class="fas fa-trash"></i></button>
-
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Nome da Fase</label>
-                                    <input type="text" id="edit-p-name-${comp.id}-${pIdx}" value="${phase.name}" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500">
-                                </div>
-                                <div>
-                                    <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Formato</label>
-                                    <select id="edit-p-type-${comp.id}-${pIdx}" onchange="
-                                        document.getElementById('opts-league-${comp.id}-${pIdx}').classList.toggle('hidden', this.value !== 'LEAGUE');
-                                        document.getElementById('opts-groups-${comp.id}-${pIdx}').classList.toggle('hidden', this.value !== 'GROUPS');
-                                        document.getElementById('opts-knockout-${comp.id}-${pIdx}').classList.toggle('hidden', this.value !== 'KNOCKOUT');
-                                    " class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500 outline-none">
-                                        <option value="LEAGUE" ${phase.type==='LEAGUE'?'selected':''}>Liga (Pontos Corridos)</option>
-                                        <option value="GROUPS" ${phase.type==='GROUPS'?'selected':''}>Fase de Grupos</option>
-                                        <option value="KNOCKOUT" ${phase.type==='KNOCKOUT'?'selected':''}>Mata-Mata</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider block">Classificados</label>
-                                    <input type="number" id="edit-p-adv-${comp.id}-${pIdx}" value="${phase.advancingTeams}" min="0" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-sm text-emerald-400 font-bold focus:border-blue-500">
-                                </div>
-                            </div>
-
-                            <div class="mt-3 flex items-center gap-4 text-sm font-bold text-slate-300 bg-slate-900/50 p-2 rounded-lg border border-slate-700/50">
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white">
-                                    <input type="checkbox" id="edit-p-seeding-${comp.id}-${pIdx}" ${phase.seedingByPrevPhase ? 'checked' : ''} class="w-4 h-4 accent-yellow-500"> 
-                                    Cabeças de Chave (Potes) baseados na Fase Anterior
-                                </label>
-                            </div>
-                            
-                            <div class="mt-4 p-3 bg-slate-900/80 rounded-lg border border-slate-700/50">
-                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Opções Avançadas do Formato</div>
-                                
-                                <div id="opts-league-${comp.id}-${pIdx}" class="${phase.type === 'LEAGUE' ? 'block' : 'hidden'}">
-                                    <div class="w-1/3">
-                                        <label class="text-[10px] text-slate-400 uppercase font-bold block mb-1">Nº de Turnos</label>
-                                        <input type="number" id="edit-p-rounds-l-${comp.id}-${pIdx}" value="${phase.rounds || 2}" min="1" class="w-full bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
-                                    </div>
-                                </div>
-
-                                <div id="opts-groups-${comp.id}-${pIdx}" class="${phase.type === 'GROUPS' ? 'flex' : 'hidden'} gap-4">
-                                    <div class="flex-1">
-                                        <label class="text-[10px] text-slate-400 uppercase font-bold block mb-1">Qtd. de Grupos</label>
-                                        <input type="number" id="edit-p-numgroups-${comp.id}-${pIdx}" value="${phase.numGroups || 2}" min="1" class="w-full bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
-                                    </div>
-                                    <div class="flex-1">
-                                        <label class="text-[10px] text-slate-400 uppercase font-bold block mb-1">Turnos nos Grupos</label>
-                                        <input type="number" id="edit-p-rounds-g-${comp.id}-${pIdx}" value="${phase.rounds || 2}" min="1" class="w-full bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
-                                    </div>
-                                </div>
-
-                                <div id="opts-knockout-${comp.id}-${pIdx}" class="${phase.type === 'KNOCKOUT' ? 'grid' : 'hidden'} grid-cols-2 gap-3 items-center">
-                                    <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-300 hover:text-white"><input type="checkbox" id="edit-p-twolegs-${comp.id}-${pIdx}" ${phase.twoLegs ? 'checked' : ''} class="w-4 h-4 accent-blue-500"> Jogos de Ida e Volta</label>
-                                    <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-300 hover:text-white"><input type="checkbox" id="edit-p-singlefinal-${comp.id}-${pIdx}" ${phase.singleFinal ? 'checked' : ''} class="w-4 h-4 accent-yellow-500"> Final Única</label>
-                                    <div class="col-span-2 mt-2">
-                                        <label class="text-[10px] text-slate-400 uppercase font-bold block mb-1">Pausar a Fase ao restar X Equipes</label>
-                                        <input type="number" id="edit-p-stop-${comp.id}-${pIdx}" value="${phase.stopAtTeams || 1}" min="1" class="w-1/3 bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 p-3 bg-slate-900/40 rounded-lg border border-slate-700/50">
-                                <div class="flex items-center justify-between mb-2">
-                                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fas fa-filter text-emerald-500 mr-1"></i> Regras de Classificação Externas</div>
-                                    <button onclick="addRuleToPhase('${comp.id}', ${pIdx})" class="text-[10px] bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 px-2 py-1 rounded border border-emerald-600/50 transition-colors"><i class="fas fa-plus mr-1"></i> Adicionar Regra</button>
-                                </div>
-                                <div class="space-y-2">
-                                    ${(!phase.injectRules || phase.injectRules.length === 0) ? '<div class="text-xs text-slate-500 italic py-1">Nenhuma regra externa configurada.</div>' : phase.injectRules.map((r, rIdx) => `
-                                        <div class="flex flex-col sm:flex-row items-center gap-2 bg-slate-800 p-2 rounded border border-slate-600 relative group">
-                                            <button onclick="removeRuleFromPhase('${comp.id}', ${pIdx}, ${rIdx})" class="absolute -right-2 -top-2 bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md text-xs z-10" title="Excluir Regra"><i class="fas fa-times"></i></button>
-                                            <div class="w-full sm:w-1/4">
-                                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-0.5">Tipo</label>
-                                                <select id="edit-r-type-${comp.id}-${pIdx}-${rIdx}" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-xs text-white outline-none focus:border-blue-500">
-                                                        <option value="LIVE_GLOBAL" ${r.type === 'LIVE_GLOBAL' ? 'selected' : ''}>Tabela Geral - Ano Atual</option>
-                                                        <option value="PREV_GLOBAL" ${r.type === 'PREV_GLOBAL' ? 'selected' : ''}>Tabela Geral - Ano Anterior</option>
-                                                        <option value="LIVE_PHASE" ${r.type === 'LIVE_PHASE' ? 'selected' : ''}>Tabela Fase - Ano Atual</option>
-                                                        <option value="PREV_PHASE" ${r.type === 'PREV_PHASE' ? 'selected' : ''}>Tabela Fase - Ano Anterior</option>
-                                                </select>
-                                            </div>
-                                            <div class="w-full sm:flex-1">
-                                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-0.5">Origem</label>
-                                                <select id="edit-r-source-${comp.id}-${pIdx}-${rIdx}" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-xs text-white outline-none focus:border-blue-500">
-                                                    ${buildSourceOptions(r.sourceId)}
-                                                </select>
-                                            </div>
-                                            <div class="w-full sm:w-24 flex items-center gap-1">
-                                                <div class="flex-1"><label class="text-[9px] text-slate-400 uppercase font-bold block mb-0.5 text-center">Do</label><input type="number" id="edit-r-min-${comp.id}-${pIdx}-${rIdx}" value="${r.minRank}" min="1" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-xs text-white text-center"></div>
-                                                <span class="text-xs text-slate-500 mt-3">º</span>
-                                                <div class="flex-1"><label class="text-[9px] text-slate-400 uppercase font-bold block mb-0.5 text-center">Ao</label><input type="number" id="edit-r-max-${comp.id}-${pIdx}-${rIdx}" value="${r.maxRank}" min="1" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-xs text-white text-center"></div>
-                                            </div>
-                                            <div class="w-full sm:w-auto">
-                                                <label class="flex items-center gap-1.5 cursor-pointer text-[9px] text-slate-300 hover:text-white whitespace-nowrap">
-                                                    <input type="checkbox" id="edit-r-realloc-${comp.id}-${pIdx}-${rIdx}" ${r.allowReallocation !== false ? 'checked' : ''} class="w-3.5 h-3.5 accent-blue-500"> 
-                                                    Repasse de Vagas
-                                                </label>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            <div class="mt-4 flex gap-4 text-sm font-bold text-slate-300">
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white"><input type="checkbox" id="edit-p-keep-${comp.id}-${pIdx}" ${phase.keepPreviousPoints ? 'checked' : ''} class="w-4 h-4 accent-blue-500"> Herdar Pontos da Fase Anterior</label>
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white"><input type="checkbox" id="edit-p-agg-${comp.id}-${pIdx}" ${phase.countsToAggregatedTable ? 'checked' : ''} class="w-4 h-4 accent-blue-500"> Somar na Tabela Geral (Anual)</label>
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white"><input type="checkbox" id="edit-p-title-${comp.id}-${pIdx}" ${phase.awardsTitle ? 'checked' : ''} class="w-4 h-4 accent-yellow-500"> Dá Troféu ao Vencedor</label>
-                            </div>
-                        </div>
-                    `).join('') : '<div class="text-sm text-slate-500 italic py-4">Nenhuma fase configurada. O torneio funcionará como um campeonato de pontos corridos simples.</div>'}
-                </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
         container.innerHTML = html;
     }
 }
@@ -1011,15 +880,38 @@ function removeTitleFromComp(compId, teamId) {
 }
 
 function openEditor() {
-    document.getElementById('screen-select').classList.add('hidden');
-    document.getElementById('screen-editor').classList.remove('hidden');
-    renderEditorCountries();
+    // Verifica se os elementos existem
+    const screenSelect = document.getElementById('screen-select');
+    const screenEditor = document.getElementById('screen-editor');
+    
+    if (!screenSelect || !screenEditor) {
+        console.error('Elementos do editor não encontrados');
+        showModal('Erro', 'Não foi possível abrir o editor.');
+        return;
+    }
+    
+    screenSelect.classList.add('hidden');
+    screenEditor.classList.remove('hidden');
+    
+    // Inicializa o editor
+    if (typeof renderEditorCountries === 'function') {
+        renderEditorCountries();
+    } else {
+        console.error('renderEditorCountries não definida');
+        showModal('Erro', 'Função do editor não encontrada.');
+    }
 }
 
 function closeEditor() {
-    document.getElementById('screen-editor').classList.add('hidden');
-    document.getElementById('screen-select').classList.remove('hidden');
-    renderTeamSelection();
+    const screenEditor = document.getElementById('screen-editor');
+    const screenSelect = document.getElementById('screen-select');
+    
+    if (screenEditor) screenEditor.classList.add('hidden');
+    if (screenSelect) screenSelect.classList.remove('hidden');
+    
+    if (typeof renderTeamSelection === 'function') {
+        renderTeamSelection();
+    }
 }
 
 function saveGame() {

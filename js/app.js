@@ -393,7 +393,7 @@ function renderClassicHub() {
         </div>
     `;
 
-    // TELA SQUAD (ELENCO)
+    // TELA SQUAD (ELENCO) - CORRIGIDA
     if (currentMainView === 'squad') {
         mainContentEl.innerHTML = `
             <div class="flex flex-col md:flex-row gap-2 h-full w-full">
@@ -421,9 +421,24 @@ function renderClassicHub() {
         `;
         
         const tbody = document.getElementById('squad-tbody');
+        if (!tbody) {
+            console.error('Elemento squad-tbody não encontrado');
+            return;
+        }
+        
+        // Verifica se mySquad existe e é um array
+        if (!gameState.mySquad || !Array.isArray(gameState.mySquad)) {
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-gray-500 py-4">Nenhum jogador no elenco.</td></tr>';
+            return;
+        }
+        
         let sortedSquad = [...gameState.mySquad].sort((a, b) => {
-            const w = (p) => { let pos = p.split('/')[0]; return pos==='GOL'?1:['ZAG','LTD','LTE'].includes(pos)?2:['VOL','MC','MEI'].includes(pos)?3:4; };
-            return w(a.pos) - w(b.pos) || b.ovr - a.ovr;
+            const w = (p) => { 
+                if (!p || !p.pos) return 4;
+                let pos = p.pos.split('/')[0]; 
+                return pos==='GOL'?1:['ZAG','LTD','LTE'].includes(pos)?2:['VOL','MC','MEI'].includes(pos)?3:4; 
+            };
+            return (w(a) - w(b)) || (b.ovr - a.ovr);
         });
         
         sortedSquad.forEach(p => {
@@ -434,7 +449,10 @@ function renderClassicHub() {
             }
             
             const tr = document.createElement('tr');
-            tr.id = `row-${p.id}`; tr.onclick = () => selectPlayer(p.id);
+            tr.id = `row-${p.id}`; 
+            tr.onclick = () => selectPlayer(p.id);
+            tr.className = 'cursor-pointer hover:bg-gray-100 transition-colors';
+            
             let avg = p.sRatings && p.sRatings.length ? (p.sRatings.reduce((a,b)=>a+b,0) / p.sRatings.length).toFixed(1) : '--';
             
             let badges = '';
@@ -444,35 +462,92 @@ function renderClassicHub() {
             if (p.isLoanedOut) badges += '<span class="text-[9px] bg-orange-200 text-orange-900 border border-orange-800 px-1 ml-1 rounded font-bold" title="Emprestado para outro clube">FORA</span>';
             if (p.isYouth) badges += '<span class="text-[9px] bg-yellow-200 text-yellow-800 border border-yellow-600 px-1 ml-1 rounded font-bold" title="Jovem da Base">⭐ BASE</span>';
 
+            // Garantir que valores undefined não quebrem a renderização
+            const pos = p.pos ? p.pos.split('/')[0] : '?';
+            const leg = p.leg || 'D';
+            const ovr = p.ovr || 50;
+            const energy = p.energy || 100;
+            const salary = p.salary || '0';
+            const value = p.value || 0;
+            const sGoals = p.sGoals || 0;
+            const age = p.age || 20;
+            const sGames = p.sGames || 0;
+            const sAssists = p.sAssists || 0;
+
             tr.innerHTML = `
-                <td class="text-center font-bold">${p.pos.split('/')[0]}</td>
+                <td class="text-center font-bold">${pos}</td>
                 <td class="flex items-center gap-2 py-1">
                     <div class="w-6 h-6 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
                         <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                         <i class="fas fa-user text-[10px] text-gray-500 hidden"></i>
                     </div>
-                    <span class="truncate max-w-[120px]">${p.name} ${badges}</span>
+                    <span class="truncate max-w-[120px]">${p.name || 'Jogador'} ${badges}</span>
                 </td>
-                <td class="text-center">${p.leg}</td><td class="text-center font-bold">${p.ovr}</td>
-                <td class="text-center"><span class="bg-[#ffff00] px-1 font-bold inline-block border border-black">${p.energy}%</span></td>
-                <td class="text-right pr-2">${p.salary}</td><td class="text-right pr-2">${p.value}M</td>
-                <td class="text-center">${p.sGoals||0}</td>
-                <td class="text-center text-blue-600 font-bold">${p.age}</td>
-                <td class="text-center">${p.sGames||0}</td>
-                <td class="text-center">${p.sAssists||0}</td><td class="text-center">${avg}</td>
+                <td class="text-center">${leg}</td>
+                <td class="text-center font-bold">${ovr}</td>
+                <td class="text-center"><span class="bg-[#ffff00] px-1 font-bold inline-block border border-black">${energy}%</span></td>
+                <td class="text-right pr-2">${salary}</td>
+                <td class="text-right pr-2">${value}M</td>
+                <td class="text-center">${sGoals}</td>
+                <td class="text-center text-blue-600 font-bold">${age}</td>
+                <td class="text-center">${sGames}</td>
+                <td class="text-center">${sAssists}</td>
+                <td class="text-center">${avg}</td>
             `;
             tbody.appendChild(tr);
         });
-        if(gameState.selectedPlayerId) selectPlayer(gameState.selectedPlayerId);
+        
+        // Restaura a seleção anterior se existir
+        if(gameState.selectedPlayerId) {
+            setTimeout(() => selectPlayer(gameState.selectedPlayerId), 50);
+        }
 
-    // TELA LINEUP (TÁTICAS)
+    // TELA LINEUP (TÁTICAS) - CORRIGIDA
     } else if (currentMainView === 'lineup') {
-        const fm = gameState.myLineup.formation;
+        // Verifica se formationsDB existe
+        if (typeof formationsDB === 'undefined' || !formationsDB) {
+            mainContentEl.innerHTML = `
+                <div class="bg-white h-full w-full flex flex-col items-center justify-center classic-border-inset shadow-inner p-4">
+                    <div class="text-red-600 font-bold text-lg">Erro: Banco de dados de formações não encontrado.</div>
+                    <button class="pes-btn mt-4 px-6 py-2" onclick="switchView('home')">Voltar</button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Verifica se myLineup existe
+        if (!gameState.myLineup) {
+            gameState.myLineup = {
+                formation: '4-4-2',
+                starters: [],
+                bench: []
+            };
+        }
+        
+        const fm = gameState.myLineup.formation || '4-4-2';
         const positions = formationsDB[fm];
+        
+        if (!positions) {
+            mainContentEl.innerHTML = `
+                <div class="bg-white h-full w-full flex flex-col items-center justify-center classic-border-inset shadow-inner p-4">
+                    <div class="text-red-600 font-bold text-lg">Erro: Formação ${fm} não encontrada.</div>
+                    <button class="pes-btn mt-4 px-6 py-2" onclick="switchView('home')">Voltar</button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Garante que starters e bench existam
+        if (!gameState.myLineup.starters) {
+            gameState.myLineup.starters = [];
+        }
+        if (!gameState.myLineup.bench) {
+            gameState.myLineup.bench = [];
+        }
         
         let pitchHtml = positions.map((pos, idx) => {
             let pId = gameState.myLineup.starters[idx];
-            let p = gameState.mySquad.find(x => x.id === pId);
+            let p = pId ? gameState.mySquad.find(x => x.id === pId) : null;
             let isSelected = selectedTacticsSlot === `starter-${idx}` ? 'selected' : '';
             let ovrHtml = '--';
             let avatarHtml = '<i class="fas fa-user text-xs text-gray-500"></i>';
@@ -485,16 +560,19 @@ function renderClassicHub() {
                     p.photoUrl = generatePlayerPhoto(p.name, p.pos, seed);
                 }
                 
-                let pen = getPositionPenalty(p.pos, pos.role);
-                let displayOvr = Math.max(1, p.ovr + pen);
-                ovrHtml = pen < 0 ? `<span class="text-red-500 font-black">${displayOvr}</span>` : p.ovr;
-                playerName = p.name.split(' ').pop();
+                let pen = 0;
+                if (typeof getPositionPenalty === 'function') {
+                    pen = getPositionPenalty(p.pos, pos.role);
+                }
+                let displayOvr = Math.max(1, (p.ovr || 50) + pen);
+                ovrHtml = pen < 0 ? `<span class="text-red-500 font-black">${displayOvr}</span>` : (p.ovr || 50);
+                playerName = p.name ? p.name.split(' ').pop() : 'Jogador';
                 
                 avatarHtml = `<img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><i class="fas fa-user text-xs text-gray-500 hidden"></i>`;
             }
 
             return `
-                <div style="position: absolute; top: ${pos.top}; left: ${pos.left}; width: 0; height: 0; pointer-events: none;">
+                <div style="position: absolute; top: ${pos.top || '50%'}; left: ${pos.left || '50%'}; width: 0; height: 0; pointer-events: none;">
                     <div class="pitch-player-avatar ${isSelected}" onclick="selectTacticsSlot(${idx}, false)" style="pointer-events: auto;">
                         ${avatarHtml}
                     </div>
@@ -504,34 +582,39 @@ function renderClassicHub() {
             `;
         }).join('');
 
-        let benchHtml = gameState.myLineup.bench.map((pId, idx) => {
-            let p = gameState.mySquad.find(x => x.id === pId);
-            if(!p) return '';
-            
-            // Garante que o jogador tenha foto
-            if (!p.photoUrl) {
-                const seed = `${p.name}_${p.pos}_${gameState.playerTeamId}`;
-                p.photoUrl = generatePlayerPhoto(p.name, p.pos, seed);
-            }
-            
-            let isSelected = selectedTacticsSlot === `bench-${idx}` ? 'bg-blue-900 text-white' : 'hover:bg-gray-200';
-            return `
-                <div class="border-b border-gray-300 p-1 flex justify-between cursor-pointer text-[11px] ${isSelected}" onclick="selectTacticsSlot(${idx}, true)">
-                    <div class="flex items-center gap-1">
-                        <div class="w-5 h-5 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
-                            <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                            <i class="fas fa-user text-[8px] text-gray-500 hidden"></i>
+        let benchHtml = '';
+        if (gameState.myLineup.bench && gameState.myLineup.bench.length > 0) {
+            benchHtml = gameState.myLineup.bench.map((pId, idx) => {
+                let p = pId ? gameState.mySquad.find(x => x.id === pId) : null;
+                if(!p) return '';
+                
+                // Garante que o jogador tenha foto
+                if (!p.photoUrl) {
+                    const seed = `${p.name}_${p.pos}_${gameState.playerTeamId}`;
+                    p.photoUrl = generatePlayerPhoto(p.name, p.pos, seed);
+                }
+                
+                let isSelected = selectedTacticsSlot === `bench-${idx}` ? 'bg-blue-900 text-white' : 'hover:bg-gray-200';
+                return `
+                    <div class="border-b border-gray-300 p-1 flex justify-between cursor-pointer text-[11px] ${isSelected}" onclick="selectTacticsSlot(${idx}, true)">
+                        <div class="flex items-center gap-1">
+                            <div class="w-5 h-5 rounded-full bg-gray-300 border border-gray-400 overflow-hidden flex items-center justify-center shrink-0">
+                                <img src="${p.photoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <i class="fas fa-user text-[8px] text-gray-500 hidden"></i>
+                            </div>
+                            <span class="font-bold w-6 text-center">${p.pos ? p.pos.split('/')[0] : '?'}</span> <span>${p.name || 'Jogador'}</span>
                         </div>
-                        <span class="font-bold w-6 text-center">${p.pos.split('/')[0]}</span> <span>${p.name}</span>
+                        <span class="font-bold text-green-700">${p.ovr || 50}</span>
                     </div>
-                    <span class="font-bold text-green-700">${p.ovr}</span>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
+        } else {
+            benchHtml = '<div class="text-center text-gray-500 text-xs p-2">Banco vazio</div>';
+        }
 
         mainContentEl.innerHTML = `
             <div class="bg-white h-full w-full flex flex-col classic-border-inset overflow-hidden shadow-inner">
-                <div class="p-1 bg-[#c0c0c0] border-b border-black flex gap-2 items-center shrink-0">
+                <div class="p-1 bg-[#c0c0c0] border-b border-black flex gap-2 items-center shrink-0 flex-wrap">
                     <label class="font-bold text-[11px]">Formação:</label>
                     <select onchange="autoLineup(this.value); renderClassicHub();" class="border border-gray-500 bg-white font-bold text-[11px]">
                         ${Object.keys(formationsDB).map(f => `<option value="${f}" ${f === fm ? 'selected' : ''}>${f}</option>`).join('')}
@@ -1032,7 +1115,7 @@ function renderClassicHub() {
             </div>
         `;
 
-    // TELA JOBS (EMPREGOS) - CORRIGIDA PARA EXIBIR FOTOS E NOMES DOS TÉCNICOS
+    // TELA JOBS (EMPREGOS)
     } else if (currentMainView === 'jobs') {
         const countryId = marketState.countryId || (db.countries.length > 0 ? db.countries[0].id : null);
         const comps = db.competitions.filter(c => c.countryId === countryId);
@@ -1045,16 +1128,13 @@ function renderClassicHub() {
             const status = isMyTeam ? 'Você' : (isHumanManaged ? 'Humano' : 'IA');
             const mgrName = t.managerName || 'Interino';
             
-            // CORRIGIDO: Exibe a foto do técnico ou placeholder
             let mgrPhotoHtml = '';
             if (isMyTeam || isHumanManaged) {
-                // Técnico humano - gera avatar baseado no nome
                 const mgrPhoto = generateManagerPhoto(mgrName, t.name, t.id);
                 mgrPhotoHtml = `<img src="${mgrPhoto}" class="manager-photo" style="width:32px;height:32px;border-radius:50%;border:2px solid #4ade80;object-fit:cover;">`;
             } else if (t.managerPhotoUrl) {
                 mgrPhotoHtml = `<img src="${t.managerPhotoUrl}" class="manager-photo" style="width:32px;height:32px;border-radius:50%;border:2px solid #ccc;object-fit:cover;" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'manager-photo-placeholder\\' style=\\'width:32px;height:32px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;\\'><i class=\\'fas fa-user-tie\\'></i></div>';">`;
             } else {
-                // Gera foto para técnico que não tem
                 t.managerPhotoUrl = generateManagerPhoto(mgrName, t.name, t.id);
                 mgrPhotoHtml = `<img src="${t.managerPhotoUrl}" class="manager-photo" style="width:32px;height:32px;border-radius:50%;border:2px solid #ccc;object-fit:cover;">`;
             }
