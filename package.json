@@ -1,0 +1,14 @@
+{
+  "name": "livefoot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i css/tailwind.input.css -o css/utilities.css --minify",
+    "check": "node --check js/ui.js && node --check js/app.js && node --check js/managers.js && node --check js/divisions.js && node --check js/tactics.js && node --check js/competitions.js && node --check js/utils.js && node --check js/matches.js && node --check js/match-support.js && node --check js/movement.js && node --check js/title-playoffs.js && node --check js/people.js && node --check js/career.js && node --check js/simulation-settings.js && node --check js/transfers.js && node --check js/competition-view.js && node --check js/scorers.js && node --check js/player-development.js && node --check js/cpu-tactics.js && node --check js/sofascore-import.js && node --check api/sofascore.js && node --check server.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "start": "node server.cjs"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

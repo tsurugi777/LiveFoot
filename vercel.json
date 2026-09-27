@@ -1,24 +1,43 @@
 {
-    "name": "super-manager",
-    "version": 2,
-    "builds": [
-        {
-            "src": "**/*.html",
-            "use": "@vercel/static"
-        },
-        {
-            "src": "**/*.js",
-            "use": "@vercel/static"
-        },
-        {
-            "src": "**/*.css",
-            "use": "@vercel/static"
-        }
-    ],
-    "rewrites": [
-        {
-            "source": "/(.*)",
-            "destination": "/index.html"
-        }
-    ]
+  "name": "super-manager",
+  "version": 2,
+  "builds": [
+    {
+      "src": "**/*.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "**/*.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "css/vendor/fontawesome/webfonts/*",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "assets/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "js/**/*.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api/sofascore.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/sofascore",
+      "dest": "/api/sofascore.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
